@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Double Ali Search</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static', path='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="main-container">
+      <div class="header">
+        <h2><a href="/">Double Ali Search</a></h2>
+      </div>
+      <div class="container">
+        <!-- Block 1 -->
+        <div class="list-container">
+          <h3>List of first product names</h3>
+          <div class="input-container">
+            <input type="text" id="input1" placeholder="Add to List 1" />
+            <button type="button" onclick="addOption('list1', 'input1')">
+              Add to List 1
+            </button>
+          </div>
+          <select id="list1" name="list1[]" multiple class="list">
+            {% if names_list1 %}
+              {% for name in names_list1 %}
+                <option value="{{ name }}" class="list-item">{{ name }}</option>
+              {% endfor %}
+            {% endif %}
+          </select>
+        </div>
+        <!-- Block 2 -->
+        <div class="list-container">
+          <h3>List of second product names</h3>
+          <div class="input-container">
+            <input type="text" id="input2" placeholder="Add to List 2" />
+            <button type="button" onclick="addOption('list2', 'input2')">
+              Add to List 2
+            </button>
+          </div>
+          <select id="list2" name="list2[]" multiple class="list">
+            {% if names_list1 %}
+              {% for name in names_list2 %}
+                <option value="{{ name }}" class="list-item">{{ name }}</option>
+              {% endfor %}
+            {% endif %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Search Button -->
+      <div class="button-container">
+        <a href="/history" class="history-link">History</a>
+        <button type="button" onclick="validateAndSearch()" id="searchButton">
+          Search
+        </button>
+        <button type="button" onclick="stop_search()" id="stopButton">
+          Stop
+        </button>
+        <button type="button" onclick="save_search()" id="saveButton" disabled>
+          Save
+        </button>
+      </div>
+
+      <!-- Search Messages -->
+      <div class="message-section" id="messageSection">
+        <h4>Search Messages</h4>
+        <div id="messageContainer">
+          {{ messages_html | safe }}
+        </div>
+      </div>
+
+      <!-- Search Results -->
+      <div class="result-section" id="resultSection">
+        <h4>Search Results</h4>
+        <div id="resultContainer">
+          {{ results_html | safe}}
+        </div>
+      </div>
+    </div>
+    <script src="{{ url_for('static', path='js/script.js') }}"></script>
+  </body>
+</html>

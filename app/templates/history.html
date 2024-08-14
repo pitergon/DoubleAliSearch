@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Double Ali Search</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static', path='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="main-container">
+      <div class="header">
+        <h2><a href="/">Double Ali Search</a></h2>
+      </div>
+      <div class="history-container">
+        {% if history %}
+          {% for search in history %}
+            <div class="search-item">
+              <p><a href="/search/{{ search.search_id }}" class="timestamp">{{ search.created_at }}</a></p>
+              <div class="product-names">
+                <p class="product-category">First products names</p>
+                <ol>
+                  {% if search.names_list1 %}
+                    {% for name in search.names_list1 %}
+                      <li class="list-disc">{{ name }}</li>
+                    {% endfor %}
+                  {% endif %}
+                </ol>
+              </div>
+              <div class="product-names">
+                <p class="product-category">Second products names</p>
+                <ol>
+                  {% if search.names_list2 %}
+                    {% for name in search.names_list2 %}
+                      <li class="list-disc">{{ name }}</li>
+                    {% endfor %}
+                  {% endif %}  
+                </ol>
+              </div>
+            </div>
+          {% endfor %}
+        {% endif %}  
+      </div>
+    </div>
+  </body>
+</html>

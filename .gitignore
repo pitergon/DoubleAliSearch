@@ -1,0 +1,35 @@
+# Ignore compiled binaries
+*.exe
+*.o
+*.out
+
+# Ignore log files
+*.log
+
+# Ignore virtual environment directories (for Python projects)
+.venv/
+.venv*/
+__pycache__/
+
+# Ignore compiled bytecode files (for Python projects)
+*.pyc
+*.pyo
+__pycache__/
+
+# Ignore database files
+*.db
+*.sqlite
+
+# Ignore editor/IDE-specific files and directories
+.vscode/
+.idea/
+
+# Ignore environment configuration files with sensitive information
+.env
+
+#Temporary
+.main/
+#Jupyter lab
+.ipynb_checkpoints
+
+.tests/

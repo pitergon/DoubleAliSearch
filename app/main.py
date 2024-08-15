@@ -7,9 +7,9 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse
 from starlette.staticfiles import StaticFiles
 
-from app.models.search_model import SearchPageData
+from .models.search_model import SearchPageData
 
-from app.search_engine import SearchEngine
+from .search_engine import SearchEngine
 
 import psycopg2
 from psycopg2.extras import DictCursor
@@ -48,6 +48,7 @@ class SearchApp:
         self.app.post("/save_search")(self.save_search_endpoint)
 
         load_dotenv(os.path.join(BASE_DIR, '.env'))
+
         self.connection = psycopg2.connect(user=os.getenv('DB_USER'),
                                            password=os.getenv('DB_PASSWORD'),
                                            host=os.getenv('DB_HOST'),

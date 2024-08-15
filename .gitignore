@@ -35,5 +35,5 @@ __pycache__/
 .tests/
 
 #Ignore folder wth json results
-/json_files/*
-!/json_files/.gitkeep
+/app/json_files/*
+!/app/json_files/.gitkeep

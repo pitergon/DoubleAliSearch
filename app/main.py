@@ -49,12 +49,6 @@ class SearchApp:
 
         load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-        self.connection = psycopg2.connect(user=os.getenv('DB_USER'),
-                                           password=os.getenv('DB_PASSWORD'),
-                                           host=os.getenv('DB_HOST'),
-                                           port=os.getenv('DB_PORT'),
-                                           database=os.getenv('DB_DATABASE'))
-
     async def index_endpoint(self, request: Request):
         # "/"
         return self.templates.TemplateResponse("search.html", {"request": request})
@@ -97,9 +91,16 @@ class SearchApp:
         FROM history 
         WHERE search_id = %s
         """
-        with self.connection.cursor() as cursor:
-            cursor.execute(query, (search_id,))
-            result = cursor.fetchone()
+
+        connection = self._create_connection()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query, (search_id,))
+                result = cursor.fetchone()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            print(f"Database error: {e}")
+        finally:
+            connection.close()
 
         if result:
             messages_html, results_html, names_list1, names_list2 = result
@@ -123,22 +124,35 @@ class SearchApp:
         RETURNING search_id
         """
         values = (page_data.messages_html, page_data.results_html, page_data.list1, page_data.list2)
-        with self.connection.cursor() as cursor:
-            cursor.execute(postgres_insert_query, values)
-            last_inserted_id = cursor.fetchone()[0]
 
-        self.connection.commit()
+        connection = self._create_connection()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(postgres_insert_query, values)
+                last_inserted_id = cursor.fetchone()[0]
+                connection.commit()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            print(f"Database error: {e}")
+        finally:
+            connection.close()
 
-        return {"messages": "Saved sucessfully", "search_id": last_inserted_id}
+        return {"messages": "Saved successfully", "search_id": last_inserted_id}
 
     async def history_endpoint(self, request: Request):
         query = """
         SELECT search_id, created_at, names_list1, names_list2 
         FROM history
         """
-        with self.connection.cursor(cursor_factory=DictCursor) as cursor:
-            cursor.execute(query)
-            history = cursor.fetchall()
+
+        connection = self._create_connection()
+        try:
+            with connection.cursor(cursor_factory=DictCursor) as cursor:
+                cursor.execute(query)
+                history = cursor.fetchall()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            print(f"Database error: {e}")
+        finally:
+            connection.close()
 
         for record in history:
             record['created_at'] = record['created_at'].strftime('%Y-%m-%d %H:%M:%S')
@@ -175,9 +189,15 @@ class SearchApp:
         self.read_messages.extend(new_messages)
         return new_messages
 
-    def __del__(self):
-        if self.connection:
-            self.connection.close()
+    @staticmethod
+    def _create_connection():
+        return psycopg2.connect(
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            host=os.getenv('DB_HOST'),
+            port=os.getenv('DB_PORT'),
+            database=os.getenv('DB_DATABASE')
+        )
 
 
 search_app = SearchApp()

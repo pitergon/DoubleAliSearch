@@ -263,8 +263,7 @@ class SearchEngine:
             return 'error'
         return products
 
-    async def _parse_global_search_page(self, search: str,
-                                        page: int = None,) -> dict | str:
+    async def _parse_global_search_page(self, search: str, page: int = None,) -> dict | str:
         """
         The function parses the page with the global search results and returns a dictionary with products,
         the number of the next page and the total number of pages in the search results
@@ -332,10 +331,6 @@ class SearchEngine:
                 }
 
     async def _collect_product_stores(self, search: str)-> dict | str:
-                                    #   base_url: str,
-                                    #   filter_result: bool = False,
-                                    #   max_page: int = 60,
-                                    #   max_zero_pages: int = 2) 
         """
         Returns a dictionary with the results of a global search for a single query,
         where the key is a link to a store and the value is a dictionary with products
@@ -442,6 +437,8 @@ class SearchEngine:
 
         msg = "Start searching"
         await self._add_message(msg)
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
         result_dict = {}
         all_stores:list[dict] = []
         for search_list in query_list:
@@ -470,12 +467,15 @@ class SearchEngine:
             # Save results for one product
             msg = f'Total stores by requests "{" and ".join(search_list)}" - {len(one_product_stores)}'
             await self._add_message(msg)
-            with open(f'app/json_files/{"_&_".join(search_list)}.json', 'w', encoding='utf-8') as file:
+            filename = os.path.join(BASE_DIR, 'json_files', f'{"_&_".join(search_list)}.json')
+            # with open(f'app/json_files/{"_&_".join(search_list)}.json', 'w', encoding='utf-8') as file:
+            with open(filename, 'w', encoding='utf-8') as file:
                 json.dump(one_product_stores, file, ensure_ascii=False, indent=4)
             
             all_stores.append(one_product_stores)
         report_name = "_&_".join([search for search_list in query_list for search in search_list])
-        with open(f'app/json_files/{report_name}.json', 'w', encoding='utf-8') as file:
+        filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
+        with open(filename, 'w', encoding='utf-8') as file:
             json.dump(all_stores, file, ensure_ascii=False, indent=4)
         
         intersection_stores = set.intersection(*(map(set, (d.keys() for d in all_stores))))     
@@ -487,7 +487,8 @@ class SearchEngine:
                     result_dict[store].update(one_product_stores[store])
 
         # Save results to JSON file
-        self._save_as_json(data=result_dict, filename=f'app/json_files/{"_&_".join(['+'.join(i) for i in query_list])}.json')
+        filename = os.path.join(BASE_DIR, 'json_files', f'{"_&_".join(['+'.join(i) for i in query_list])}.json')
+        self._save_as_json(data=result_dict, filename=filename)
         msg = f'Total stores by requests "{" and ".join(['+'.join(i) for i in query_list])}" - {len(result_dict)}'
         await self._add_message(msg)
         return result_dict

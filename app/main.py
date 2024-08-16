@@ -142,6 +142,7 @@ class SearchApp:
         query = """
         SELECT search_id, created_at, names_list1, names_list2 
         FROM history
+        ORDER BY created_at DESC
         """
 
         connection = self._create_connection()

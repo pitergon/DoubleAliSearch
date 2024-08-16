@@ -22,7 +22,7 @@ class SearchEngine:
         self.messages = []
         self.base_url = 'https://www.aliexpress.com/w/wholesale'
         # Max number of result pages for parsing. After 8 pages results are often  not relevant
-        self.max_page = 8
+        self.max_page = 6
         # Max number of pages without new products in search result
         self.max_zero_pages = 2
         # Rechecking the product name for compliance with the search query
@@ -467,13 +467,13 @@ class SearchEngine:
             # Save results for one product
             msg = f'Total stores by requests "{" and ".join(search_list)}" - {len(one_product_stores)}'
             await self._add_message(msg)
-            filename = os.path.join(BASE_DIR, 'json_files', f'{"_&_".join(search_list)}.json')
-            # with open(f'app/json_files/{"_&_".join(search_list)}.json', 'w', encoding='utf-8') as file:
+            report_name = f'{"_&_".join([search.replace(" ", "_") for search in search_list])}'
+            filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
             with open(filename, 'w', encoding='utf-8') as file:
                 json.dump(one_product_stores, file, ensure_ascii=False, indent=4)
             
             all_stores.append(one_product_stores)
-        report_name = "_&_".join([search for search_list in query_list for search in search_list])
+        report_name = "_&_".join([search.replace(" ", "_") for search_list in query_list for search in search_list])
         filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
         with open(filename, 'w', encoding='utf-8') as file:
             json.dump(all_stores, file, ensure_ascii=False, indent=4)
@@ -487,9 +487,10 @@ class SearchEngine:
                     result_dict[store].update(one_product_stores[store])
 
         # Save results to JSON file
-        filename = os.path.join(BASE_DIR, 'json_files', f'{"_&_".join(['+'.join(i) for i in query_list])}.json')
+        report_name = f'{"_&_".join(["+".join([search.replace(" ", "_") for search in search_list]) for search_list in query_list])}'
+        filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
         self._save_as_json(data=result_dict, filename=filename)
-        msg = f'Total stores by requests "{" and ".join(['+'.join(i) for i in query_list])}" - {len(result_dict)}'
+        msg = f'Total stores by requests "{" and ".join(["+".join(i) for i in query_list])}" - {len(result_dict)}'
         await self._add_message(msg)
         return result_dict
 

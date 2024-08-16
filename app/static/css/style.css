@@ -15,6 +15,22 @@ button {
     border: 1px solid #ccc;
     padding: 3px 8px;
     margin-left: 5px;
+    background-color: #f8f8f8;
+    color: #333;
+    cursor: pointer;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+button:active {
+    background-color: #ccc;
+    border-color: #666;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+}
+
+
+button:focus {
+    outline: none;
+    box-shadow: 0 0 3px #aaa;
 }
 
 .main-container {
@@ -57,8 +73,6 @@ button {
     flex: 1;
     padding: 3px;
 }
-
-
 
 .list-container select {
     border-radius: 4px;
@@ -107,9 +121,6 @@ button {
 }
 
 .button-container {
-    /* text-align: center;
-    margin: 10px 0; */
-
     display: flex;
     justify-content: space-between;
     align-items: center;

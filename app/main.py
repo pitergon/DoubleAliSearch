@@ -134,8 +134,8 @@ class SearchApp:
             print(f"Database error: {e}")
         finally:
             connection.close()
-        return {"messages": "Saved successfully", 
-                "search_id": last_inserted_id
+        return {"messages": "Saved successfully",
+                "url": f"/search/{last_inserted_id}",
                 }
 
     async def history_endpoint(self, request: Request):

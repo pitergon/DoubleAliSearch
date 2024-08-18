@@ -152,6 +152,8 @@ function stop_search() {
 
 //function saves results, messages and search_lists into DB om server
 function save_search() {
+  const saveButton = document.getElementById("save-button");
+  saveButton.disabled = true;
   let list1 = Array.from(document.getElementById("list1").options).map((option) => option.value);
   let list2 = Array.from(document.getElementById("list2").options).map((option) => option.value);
   const messagesList = JSON.parse(document.getElementById("messages-list").value || "[]");
@@ -169,11 +171,13 @@ function save_search() {
       results: resultsData,
     }),
   })
-    .then((response) => {
-      if (response.ok) {
-        console.log("Search saved");
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.messages === "Saved successfully") {
+        console.log(data.messages);
+        window.location.href = data.url;
       } else {
-        console.error("Failed to stop search");
+        console.error("Failed to save search");
       }
     })
     .catch((error) => console.error("Error:", error))
@@ -188,7 +192,7 @@ function loadResults(resultData) {
   resultsContainer.innerHTML = "";
   if (Object.keys(resultData).length === 0) {
     const p = document.createElement("p");
-    p.textContent = "No results found";  
+    p.textContent = "No results found";
     resultsContainer.appendChild(p);
   } else {
     const ol = document.createElement("ol");

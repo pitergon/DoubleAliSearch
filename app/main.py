@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -46,7 +47,6 @@ class SearchApp:
         self.app.get("/search/{search_id}")(self.search_id_endpoint)
         self.app.get("/history")(self.history_endpoint)
         self.app.post("/save_search")(self.save_search_endpoint)
-
         load_dotenv(os.path.join(BASE_DIR, '.env'))
 
     async def index_endpoint(self, request: Request):
@@ -87,7 +87,7 @@ class SearchApp:
         # "/search/{search_id}"
 
         query = """
-        SELECT  messages_html, results_html, names_list1, names_list2
+        SELECT  messages, results, names_list1, names_list2
         FROM history 
         WHERE search_id = %s
         """
@@ -103,14 +103,14 @@ class SearchApp:
             connection.close()
 
         if result:
-            messages_html, results_html, names_list1, names_list2 = result
+            messages, results, names_list1, names_list2 = result
         else:
-            messages_html = results_html = names_list1 = names_list2 = None
+            messages = results = names_list1 = names_list2 = None
 
         return self.templates.TemplateResponse("search.html", {
             "request": request,
-            "messages_html": messages_html,
-            "results_html": results_html,
+            "messages": json.dumps(messages),
+            "results": json.dumps(results),
             "names_list1": names_list1,
             "names_list2": names_list2
         })
@@ -119,12 +119,11 @@ class SearchApp:
         if not page_data.list1 or not page_data.list2:
             return {"error": "Both lists must have at least one item."}
         postgres_insert_query = """
-        INSERT INTO history (messages_html, results_html, names_list1, names_list2) 
+        INSERT INTO history (messages, results, names_list1, names_list2) 
         VALUES (%s,%s,%s,%s) 
         RETURNING search_id
         """
-        values = (page_data.messages_html, page_data.results_html, page_data.list1, page_data.list2)
-
+        values = (page_data.messages, json.dumps(page_data.results), page_data.list1, page_data.list2)
         connection = self._create_connection()
         try:
             with connection.cursor() as cursor:
@@ -135,14 +134,21 @@ class SearchApp:
             print(f"Database error: {e}")
         finally:
             connection.close()
-
-        return {"messages": "Saved successfully", "search_id": last_inserted_id}
+        return {"messages": "Saved successfully", 
+                "search_id": last_inserted_id
+                }
 
     async def history_endpoint(self, request: Request):
         query = """
-        SELECT search_id, created_at, names_list1, names_list2 
+        SELECT 
+            search_id, 
+            created_at, 
+            names_list1, 
+            names_list2,
+            (SELECT COUNT(*) 
+                FROM json_object_keys(results) AS keys) AS results_number
         FROM history
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC;
         """
 
         connection = self._create_connection()

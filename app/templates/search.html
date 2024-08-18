@@ -1,87 +1,144 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Double Ali Search</title>
-    <link
-      rel="stylesheet"
-      type="text/css"
-      href="{{ url_for('static', path='css/style.css') }}"
-    />
+    <title>Double AliExpress Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body>
-    <div class="main-container">
-      <div class="header">
-        <h2><a href="/">Double Ali Search</a></h2>
-      </div>
-      <div class="container">
-        <!-- Block 1 -->
-        <div class="list-container">
-          <h3>List of first product names</h3>
-          <div class="input-container">
-            <input type="text" id="input1" placeholder="Add to List 1" />
-            <button type="button" onclick="addOption('list1', 'input1')">
-              Add to List 1
+  <body class="h-full bg-gray-200 text-gray-900 overflow-hidden">
+    <header class="bg-gradient-to-r from-red-600 to-yellow-500 text-white py-3 text-center">
+      <h1 class="text-3xl font-bold"><a href="/" class="text-white">Double AliExpress Search</a></h1>
+    </header>
+    <!-- main content -->
+    <main class="container mx-auto px-4 pt-4 pb-7 flex flex-col h-[calc(100vh-3rem)] space-y-4">
+      <!--search lists-->
+      <section class="bg-white flex flex-col shadow-lg rounded-lg py-2 flex-none">
+        <h3 class="text-xl px-4 font-semibold text-red-600">Product names</h3>
+        <div class="flex flex-row mt-4">
+          <!-- list 1 -->
+          <div class="flex flex-col flex-grow basis-1/2 px-4">
+            <div class="flex flex-row">
+              <input
+                type="text"
+                class="flex-grow border text-red-600 border-red-600 p-2 rounded-md focus:outline-none focus:border-yellow-500"
+                id="input1"
+                placeholder="Add to List 1"
+              />
+              <button
+                type="button"
+                class="ml-4 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
+                onclick="addOption('list1', 'input1')"
+              >
+                Add to List 1
+              </button>
+            </div>
+            <div class="flex-grow w-full mt-1" id="select-container-1">
+              <p class="text-red-600">List of first product names (double click to delete)</p>
+              <div class="overflow-hidden rounded-md mt-2 border border-red-600">
+                <select
+                  id="list1"
+                  name="list1[]"
+                  size="2"
+                  multiple
+                  class="w-full text-red-600 p-2 focus:outline-none focus:border-yellow-500 overflow-auto"
+                >
+                  {% if names_list1 %} {% for name in names_list1 %}
+                  <option value="{{ name }}">{{ name }}</option>
+                  {% endfor %} {% endif %}
+                </select>
+              </div>
+            </div>
+          </div>
+          <!-- list 2 -->
+          <div class="flex flex-col flex-grow basis-1/2 px-4">
+            <div class="flex flex-row">
+              <input
+                type="text"
+                class="flex-grow text-red-600 border border-red-600 p-2 rounded-md focus:outline-none focus:border-yellow-500"
+                id="input2"
+                placeholder="Add to List 2"
+              />
+              <button
+                type="button"
+                class="ml-4 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
+                onclick="addOption('list2', 'input2')"
+              >
+                Add to List 2
+              </button>
+            </div>
+            <div class="flex-grow w-full mt-1" id="select-container-2">
+              <p class="text-red-600">List of second product names (double click to delete)</p>
+              <div class="overflow-hidden rounded-md mt-2 border border-red-600">
+                <select
+                  id="list2"
+                  name="list2[]"
+                  size="2"
+                  multiple
+                  class="w-full text-red-600 p-2 focus:outline-none focus:border-yellow-500 overflow-auto"
+                >
+                  {% if names_list2 %} {% for name in names_list2 %}
+                  <option value="{{ name }}">{{ name }}</option>
+                  {% endfor %} {% endif %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex w-full mt-2">
+          <div class="flex flex-row justify-between flex-grow basis-1/2 px-4">
+            <div class="py-1">
+              <a href="/history" class="text-red-600 hover:text-red-800 font-bold text-lg">History</a>
+            </div>
+            <div>
+              <button
+                type="button"
+                class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
+                onclick="validateAndSearch()"
+                id="search-button"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+          <div class="flex flex-row justify-between flex-grow basis-1/2 px-4">
+            <button
+              type="button"
+              class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
+              onclick="stop_search()"
+              id="stopButton"
+            >
+              Stop
+            </button>
+            <button
+              type="button"
+              class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
+              onclick="save_search()"
+              id="save-button"
+              disabled
+            >
+              Save
             </button>
           </div>
-          <select id="list1" name="list1[]" multiple class="list">
-            {% if names_list1 %}
-              {% for name in names_list1 %}
-                <option value="{{ name }}" class="list-item">{{ name }}</option>
-              {% endfor %}
-            {% endif %}
-          </select>
         </div>
-        <!-- Block 2 -->
-        <div class="list-container">
-          <h3>List of second product names</h3>
-          <div class="input-container">
-            <input type="text" id="input2" placeholder="Add to List 2" />
-            <button type="button" onclick="addOption('list2', 'input2')">
-              Add to List 2
-            </button>
-          </div>
-          <select id="list2" name="list2[]" multiple class="list">
-            {% if names_list1 %}
-              {% for name in names_list2 %}
-                <option value="{{ name }}" class="list-item">{{ name }}</option>
-              {% endfor %}
-            {% endif %}
-          </select>
-        </div>
-      </div>
-
-      <!-- Search Button -->
-      <div class="button-container">
-        <a href="/history" class="history-link">History</a>
-        <button type="button" onclick="validateAndSearch()" id="searchButton">
-          Search
-        </button>
-        <button type="button" onclick="stop_search()" id="stopButton">
-          Stop
-        </button>
-        <button type="button" onclick="save_search()" id="saveButton" disabled>
-          Save
-        </button>
-      </div>
+      </section>
 
       <!-- Search Messages -->
-      <div class="message-section" id="messageSection">
-        <h4>Search Messages</h4>
-        <div id="messageContainer">
-          {{ messages_html | safe }}
+      <section class="bg-orange-50 flex flex-grow flex-col shadow-lg rounded-lg py-2 overflow-auto h-[calc(20vh)]" id="messages-section">
+        <h3 class="text-xl px-4 font-semibold text-red-600">Search Messages</h3>
+        <div class="px-4 mt-2 flex-grow overflow-auto text-red-600" id="messages-container">
         </div>
-      </div>
+      </section>
 
       <!-- Search Results -->
-      <div class="result-section" id="resultSection">
-        <h4>Search Results</h4>
-        <div id="resultContainer">
-          {{ results_html | safe}}
+      <section class="bg-orange-100 flex flex-grow flex-col shadow-lg rounded-lg py-2 overflow-auto h-[calc(20vh)]" id="results-section">
+        <h3 class="text-xl px-4 font-semibold text-red-600">Search Results</h3>
+        <div class="px-4 mt-2 flex-grow overflow-auto text-red-600" id="results-container">
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
+    <input type="hidden" id="messages-list" name="messages-list" value="{{ messages }}">
+    <input type="hidden" id="results-data" name="results-data" value="{{ results }}">
     <script src="{{ url_for('static', path='js/script.js') }}"></script>
   </body>
 </html>

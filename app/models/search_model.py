@@ -1,10 +1,9 @@
-from typing import List, Optional
-
+from typing import Optional, Any
 from pydantic import BaseModel
 
 
 class SearchPageData(BaseModel):
-    list1: List[str]
-    list2: List[str]
-    messages_html: Optional[str] = None
-    results_html: Optional[str] = None
+    list1: list[str]
+    list2: list[str]
+    messages: Optional[list[str]] = None
+    results: Optional[dict[str, Any]] = None

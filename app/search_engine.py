@@ -473,12 +473,13 @@ class SearchEngine:
                 json.dump(one_product_stores, file, ensure_ascii=False, indent=4)
             
             all_stores.append(one_product_stores)
-        report_name = "_&_".join([search.replace(" ", "_") for search_list in query_list for search in search_list])
-        filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
-        with open(filename, 'w', encoding='utf-8') as file:
-            json.dump(all_stores, file, ensure_ascii=False, indent=4)
+
+        # report_name = f'list_of_all_stores{"_&_".join([search.replace(" ", "_") for search_list in query_list for search in search_list])}'
+        # filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')       
+        # with open(filename, 'w', encoding='utf-8') as file:
+        #     json.dump(all_stores, file, ensure_ascii=False, indent=4)
         
-        intersection_stores = set.intersection(*(map(set, (d.keys() for d in all_stores))))     
+        intersection_stores = set.intersection(*(map(set, (d.keys() for d in all_stores))))
 
         for store in intersection_stores:
             result_dict[store]: dict = {}
@@ -487,10 +488,12 @@ class SearchEngine:
                     result_dict[store].update(one_product_stores[store])
 
         # Save results to JSON file
-        report_name = f'{"_&_".join(["+".join([search.replace(" ", "_") for search in search_list]) for search_list in query_list])}'
+        report_name = f'results_{"_&_".join(["+".join([search.replace(" ", "_") for search in search_list]) for search_list in query_list])}'
         filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
         self._save_as_json(data=result_dict, filename=filename)
         msg = f'Total stores by requests "{" and ".join(["+".join(i) for i in query_list])}" - {len(result_dict)}'
+        await self._add_message(msg)
+        msg = 'Search finished'
         await self._add_message(msg)
         return result_dict
 

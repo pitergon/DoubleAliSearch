@@ -1,6 +1,8 @@
 import asyncio
 import json
+import math
 import os
+from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
@@ -46,6 +48,7 @@ class SearchApp:
         self.app.get("/get_messages")(self.get_messages_endpoint)
         self.app.get("/search/{search_id}")(self.search_id_endpoint)
         self.app.get("/history")(self.history_endpoint)
+        self.app.get("/history/{page}")(self.history_endpoint)
         self.app.post("/save_search")(self.save_search_endpoint)
         load_dotenv(os.path.join(BASE_DIR, '.env'))
 
@@ -138,7 +141,9 @@ class SearchApp:
                 "url": f"/search/{last_inserted_id}",
                 }
 
-    async def history_endpoint(self, request: Request):
+    async def history_endpoint(self, request: Request, page: Optional[int] = 1):
+        limit = 5
+        offset = 0
         query = """
         SELECT 
             search_id, 
@@ -148,13 +153,27 @@ class SearchApp:
             (SELECT COUNT(*) 
                 FROM json_object_keys(results) AS keys) AS results_number
         FROM history
-        ORDER BY created_at DESC;
+        ORDER BY created_at DESC
+        LIMIT %s 
+        OFFSET %s;
         """
+        query_total_count = """
+        SELECT COUNT(*) AS total_count 
+        FROM history;
+        """
+        total_records = 0
+        
 
         connection = self._create_connection()
         try:
-            with connection.cursor(cursor_factory=DictCursor) as cursor:
-                cursor.execute(query)
+            with connection.cursor(cursor_factory=DictCursor) as cursor:                
+                cursor.execute(query_total_count)
+                total_records = cursor.fetchone()['total_count']
+                total_pages = math.ceil(total_records/limit)
+                if page > total_pages:
+                    page = total_pages
+                offset = (page - 1) * limit 
+                cursor.execute(query, (limit, offset))
                 history = cursor.fetchall()
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             print(f"Database error: {e}")
@@ -164,9 +183,26 @@ class SearchApp:
         for record in history:
             record['created_at'] = record['created_at'].strftime('%Y-%m-%d %H:%M:%S')
 
+        pagination = {}
+        
+        if total_pages > 1:
+            pagination["current_page"] = page  
+            if page > 1:
+                pagination["first"]=1
+            if page > 2:
+                pagination["prev"]=page-1                    
+            if page < total_pages-1:
+                pagination["next"]=page+1
+            if page < total_pages:
+                pagination["last"]=total_pages
+
         return self.templates.TemplateResponse("history.html", {
             "request": request,
             "history": history,
+            "pagination": pagination,
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_records": total_records,
         })
 
     async def _prepare_search(self):

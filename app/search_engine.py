@@ -1,25 +1,30 @@
+import os
 import asyncio
 import json
-import os
 import random
 import re
 from datetime import datetime
-import time
-from urllib.error import HTTPError, URLError
-import requests
+import httpx
+from httpx import HTTPStatusError, RequestError
 from bs4 import BeautifulSoup
 from calmjs.parse import es5
 from calmjs.parse.unparsers.extractor import ast_to_dict
+from redis.asyncio import Redis
 
-messages = []
+# messages = []
 
 
 class SearchEngine:
-    def __init__(self, messages_lock=None):
-        # self.query_list = query_list
-        self.messages_lock = messages_lock
-        self.stop_flag = False
-        self.messages = []
+    def __init__(self, session_id: str, search_uuid: str, redis: Redis):
+        self.session_id = session_id
+        self.search_uuid = search_uuid
+        self.redis = redis
+
+        # self.queries_list = queries_list
+        # self.messages_lock = messages_lock
+        # self.messages = []
+        # self.stop_flag = False
+        # self.is_running = False
         self.base_url = 'https://www.aliexpress.com/w/wholesale'
         # Max number of result pages for parsing. After 8 pages results are often  not relevant
         self.max_page = 6
@@ -27,6 +32,10 @@ class SearchEngine:
         self.max_zero_pages = 2
         # Rechecking the product name for compliance with the search query
         self.filter_result = True
+
+    async def check_stop_flag(self):
+        entry = await self.redis.get(f"{self.session_id}:{self.search_uuid}:stop_flag")
+        return bool(int(entry)) if entry else False
 
     async def _get_html(self,
                         search: str,
@@ -96,33 +105,62 @@ class SearchEngine:
         }
 
         try:
-            response = requests.get(
-                url,
-                params=params,
-                cookies=cookies,
-                headers=headers,
-                timeout=(10, 10),
-            )
-        except HTTPError as e:
-            msg = f"HTTP Error: {e.code}"
+            async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=10.0)) as client:
+                response = await client.get(
+                    url,
+                    params=params,
+                    cookies=cookies,
+                    headers=headers,
+                )
+                response.raise_for_status()  # Raises an exception for 4xx/5xx responses
+        except HTTPStatusError as e:
+            msg = f"HTTP Error: {e.response.status_code}"
             await self._add_message(msg)
             return 'error'
-        except URLError as e:
-            msg = f"URL Error: {e.reason}"
+        except RequestError as e:
+            msg = f"Request Error: {str(e)}"
             await self._add_message(msg)
             return 'error'
+
         msg = f"Processing {response.url}"
         await self._add_message(msg)
         return response.text
 
+        # try:
+        #     response = requests.get(
+        #         url,
+        #         params=params,
+        #         cookies=cookies,
+        #         headers=headers,
+        #         timeout=(10, 10),
+        #     )
+        # except HTTPError as e:
+        #     msg = f"HTTP Error: {e.code}"
+        #     await self._add_message(msg)
+        #     return 'error'
+        # except URLError as e:
+        #     msg = f"URL Error: {e.reason}"
+        #     await self._add_message(msg)
+        #     return 'error'
+        # msg = f"Processing {response.url}"
+        # await self._add_message(msg)
+        # return response.text
+
+    # async def write_to_log(redis, log_key, message):
+    #     await redis.rpush(log_key, message)
+    # async def _add_message(self, message: str):
+    #     if self.messages_lock:
+    #         async with self.messages_lock:
+    #             time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    #             self.messages.append(f"{time_str} - {message}")
+    #     else:
+    #         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    #         self.messages.append(f"{time_str} - {message}")
+    #     print(f"{time_str} - {message}")
+
     async def _add_message(self, message: str):
-        if self.messages_lock:
-            async with self.messages_lock:
-                time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                self.messages.append(f"{time_str} - {message}")
-        else:
-            time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            self.messages.append(f"{time_str} - {message}")
+        time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        await self.redis.rpush(f"{self.session_id}:{self.search_id}", f"{time_str} - {message}")
         print(f"{time_str} - {message}")
 
     async def _get_next_page_number(self, soup: BeautifulSoup) -> int | str:
@@ -269,7 +307,7 @@ class SearchEngine:
             return 'error'
         return products
 
-    async def _parse_global_search_page(self, search: str, page: int = None,) -> dict | str:
+    async def _parse_global_search_page(self, search: str, page: int = None, ) -> dict | str:
         """
         The function parses the page with the global search results and returns a dictionary with products,
         the number of the next page and the total number of pages in the search results
@@ -336,7 +374,7 @@ class SearchEngine:
                 'page_count': page_count,
                 }
 
-    async def _collect_product_stores(self, search: str)-> dict | str:
+    async def _collect_product_stores(self, search: str) -> dict | str:
         """
         Returns a dictionary with the results of a global search for a single query,
         where the key is a link to a store and the value is a dictionary with products
@@ -361,6 +399,7 @@ class SearchEngine:
         retry = 5
         zero_pages_count = 0
         while next_page:
+
             if next_page > self.max_page:
                 msg = f'The maximum number of pages "{self.max_page}" in search results for "{search}" has been reached. Exit'
                 await self._add_message(msg)
@@ -369,10 +408,11 @@ class SearchEngine:
                 msg = f"{zero_pages_count} pages with fully filtered products. Exit"
                 await self._add_message(msg)
                 break
-            if self.stop_flag:
+
+            if await self.check_stop_flag():
                 # msg = "Stop command received. Exit"
                 # await self._add_message(msg)
-                break        
+                break
             page_data = await self._parse_global_search_page(search=search, page=next_page)
 
             while page_data == 'error' and retry:
@@ -406,7 +446,6 @@ class SearchEngine:
             await self._add_message(msg)
             await asyncio.sleep(pause)
 
-
         stores = {}
         for product_id, product in products.items():
             store_link = product.get('store_link')
@@ -422,7 +461,7 @@ class SearchEngine:
 
         return stores
 
-    async def intersection_in_global_search(self, query_list: list):
+    async def intersection_in_global_search(self, queries_list: list):
         """
         The function searches for products in the global search in turn.
         Returns a dictionary with stores that were found by different queries, where the keys are a link to the store,
@@ -437,19 +476,20 @@ class SearchEngine:
         }
     
     
-        :param query_list:
+        :param queries_list:
         :return:
         """
-
+        # self.is_running = True
         msg = "Start searching"
         await self._add_message(msg)
-        
+
         result_dict = {}
-        all_stores:list[dict] = []
-        for search_list in query_list:
+        all_stores: list[dict] = []
+        for search_list in queries_list:
             one_product_stores: dict = {}
             for search in search_list:
-                if self.stop_flag:
+                if await self.check_stop_flag():
+                    # self.is_running = False
                     msg = "Stop command received"
                     await self._add_message(msg)
                     return None
@@ -471,11 +511,11 @@ class SearchEngine:
             # Save results for one product
             msg = f'Total stores by requests "{" and ".join(search_list)}" - {len(one_product_stores)}'
             await self._add_message(msg)
-            report_name = f'{"_&_".join([search.replace(" ", "_") for search in search_list])}'       
+            report_name = f'{"_&_".join([search.replace(" ", "_") for search in search_list])}'
             self._save_report_as_json(one_product_stores, report_name)
-                       
+
             all_stores.append(one_product_stores)
-      
+
         intersection_stores = set.intersection(*(map(set, (d.keys() for d in all_stores))))
 
         for store in intersection_stores:
@@ -485,13 +525,12 @@ class SearchEngine:
                     result_dict[store].update(one_product_stores[store])
 
         # Save results to JSON file
-        report_name = f'results_{"_&_".join(["+".join([search.replace(" ", "_") for search in search_list]) for search_list in query_list])}'
+        report_name = f'results_{"_&_".join(["+".join([search.replace(" ", "_") for search in search_list]) for search_list in queries_list])}'
         # filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
         self._save_report_as_json(data=result_dict, report_name=report_name)
-        msg = f'Total stores by requests "{" and ".join(["+".join(i) for i in query_list])}" - {len(result_dict)}'
+        msg = f'Total stores by requests "{" and ".join(["+".join(i) for i in queries_list])}" - {len(result_dict)}'
         await self._add_message(msg)
         msg = 'Search finished'
         await self._add_message(msg)
+        # self.is_running = False
         return result_dict
-
-

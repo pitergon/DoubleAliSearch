@@ -106,10 +106,10 @@ class SearchEngine:
 
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=10.0)) as client:
+                client.cookies = cookies
                 response = await client.get(
                     url,
                     params=params,
-                    cookies=cookies,
                     headers=headers,
                 )
                 response.raise_for_status()  # Raises an exception for 4xx/5xx responses
@@ -160,7 +160,7 @@ class SearchEngine:
 
     async def _add_message(self, message: str):
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        await self.redis.rpush(f"{self.session_id}:{self.search_id}", f"{time_str} - {message}")
+        await self.redis.rpush(f"{self.session_id}:{self.search_uuid}", f"{time_str} - {message}")
         print(f"{time_str} - {message}")
 
     async def _get_next_page_number(self, soup: BeautifulSoup) -> int | str:
@@ -298,11 +298,17 @@ class SearchEngine:
                         item, "sellingPoints", 0, "tagContent", "tagText"
                     ),
                     "store_title": self._get_nested_dict_item(item, "store", "storeName"),
-                    "store_id": int(self._get_nested_dict_item(item, "store", "storeId")),
+                    "store_id": self._get_nested_dict_item(item, "store", "storeId"),
                     "store_link": f"https:{self._get_nested_dict_item(item, 'store', 'storeUrl')}",
                 }
         except KeyError as e:
             msg = f"Can't find key {e} in JSON"
+            await self._add_message(msg)
+            return 'error'
+        except ValueError as e:
+            msg = f"Can't convert into int {e} in JSON"
+            with open('.errors.txt', 'a') as file:
+                json.dump(item, file, ensure_ascii=False, indent=4)
             await self._add_message(msg)
             return 'error'
         return products

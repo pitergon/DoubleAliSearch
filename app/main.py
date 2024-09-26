@@ -13,7 +13,6 @@ from starlette.staticfiles import StaticFiles
 import psycopg2
 from psycopg2.extras import DictCursor
 import asyncio
-from redis import asyncio as aioredis
 from redis.asyncio import Redis
 import uuid
 from app.models.search_model import SearchPageData
@@ -32,7 +31,6 @@ templates = Jinja2Templates(directory=templates_directory)
 
 
 background_tasks = set()
-
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 
@@ -50,7 +48,7 @@ async def get_redis() -> Redis:
     redis_host = os.getenv('REDIS_HOST', 'localhost:6379')
     redis_password = os.getenv('REDIS_PASSWORD', None)
     redis_url = f"redis://{redis_host}"
-    redis = await aioredis.from_url(redis_url, password=redis_password)
+    redis = await Redis.from_url(redis_url, password=redis_password)
     return redis
 
 
@@ -122,7 +120,7 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await app.state.redis.close()
+    await app.state.redis.aclose()
 
 
 async def add_session_middleware(request: Request, call_next):

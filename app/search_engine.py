@@ -32,30 +32,59 @@ class SearchEngine:
         self.max_zero_pages = 2
         # Rechecking the product name for compliance with the search query
         self.filter_result = True
+        self.enable_pause = True
+        self.use_fake_html = True
 
     async def check_stop_flag(self):
         entry = await self.redis.get(f"{self.session_id}:{self.search_uuid}:stop_flag")
         return bool(int(entry)) if entry else False
 
+    def _get_fake_html(self,
+                        search: str,
+                        page_number: int = None,
+                        ) -> str:
+        """
+        Returns fake html from previously saved txt files
+
+        :param search:
+        :param page_number:
+        :return:
+        """
+
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        file_name = f"{search}-{page_number}.txt"
+        file_path = os.path.join(BASE_DIR, "test_data", file_name)
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                print(f"Read file {file_name}")
+                html = f.read()
+        except OSError as e:
+            print(e)
+            html = ''
+        return html
+
+
     async def _get_html(self,
                         search: str,
-                        base_url: str,
-                        page: int = None,
+                        page_number: int = None,
                         ) -> str:
         """
         Gets HTML from page with global search results
     
         :param search:
-        :param base_url:
-        :param page:
+        :param page_number:
         :return:
         """
-        url = f"{base_url.lower()}-{search.replace(" ", "-").lower()}.html"
+
+        if self.use_fake_html:
+            return self._get_fake_html(search, page_number)
+
+        url = f"{self.base_url}-{search.replace(" ", "-").lower()}.html"
         params = {
             'spm': 'a2g0o.home.search.0',
         }
-        if page and page > 1:
-            params["page"] = page
+        if page_number and page_number > 1:
+            params["page"] = page_number
 
         cookies = {
             'ali_apache_id': '33.27.108.54.1723404130100.617835.3',
@@ -126,39 +155,16 @@ class SearchEngine:
         await self._add_message(msg)
         return response.text
 
-        # try:
-        #     response = requests.get(
-        #         url,
-        #         params=params,
-        #         cookies=cookies,
-        #         headers=headers,
-        #         timeout=(10, 10),
-        #     )
-        # except HTTPError as e:
-        #     msg = f"HTTP Error: {e.code}"
-        #     await self._add_message(msg)
-        #     return 'error'
-        # except URLError as e:
-        #     msg = f"URL Error: {e.reason}"
-        #     await self._add_message(msg)
-        #     return 'error'
-        # msg = f"Processing {response.url}"
-        # await self._add_message(msg)
-        # return response.text
 
-    # async def write_to_log(redis, log_key, message):
-    #     await redis.rpush(log_key, message)
-    # async def _add_message(self, message: str):
-    #     if self.messages_lock:
-    #         async with self.messages_lock:
-    #             time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    #             self.messages.append(f"{time_str} - {message}")
-    #     else:
-    #         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    #         self.messages.append(f"{time_str} - {message}")
-    #     print(f"{time_str} - {message}")
+
 
     async def _add_message(self, message: str):
+        """
+        Add message to message queue about search status
+        :param message:
+        :return:
+        """
+
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         await self.redis.rpush(f"{self.session_id}:{self.search_uuid}", f"{time_str} - {message}")
         print(f"{time_str} - {message}")
@@ -328,13 +334,12 @@ class SearchEngine:
             'page_count':page_count,
         }
         :param search:
-        :param base_url:
         :param page:
         :param filter_result:
         :return:
         """
 
-        html = await self._get_html(search, self.base_url, page)
+        html = await self._get_html(search, page)
         if html == 'error':
             msg = "Failed to get HTML"
             await self._add_message(msg)
@@ -393,7 +398,6 @@ class SearchEngine:
             },
         }
         :param search:
-        :param base_url:
         :param filter_result:
         :param max_page:
         :param max_zero_pages:
@@ -425,7 +429,8 @@ class SearchEngine:
                 pause = random.randint(0, 5)
                 msg = f"Pause for {pause} second"
                 await self._add_message(msg)
-                await asyncio.sleep(pause)
+                if self.enable_pause:
+                    await asyncio.sleep(pause)
                 page_data = await self._parse_global_search_page(search=search,
                                                                  page=next_page)
                 retry -= 1
@@ -450,7 +455,8 @@ class SearchEngine:
             pause = random.randint(0, 5)
             msg = f"Pause for {pause} second"
             await self._add_message(msg)
-            await asyncio.sleep(pause)
+            if self.enable_pause:
+                await asyncio.sleep(pause)
 
         stores = {}
         for product_id, product in products.items():
@@ -513,7 +519,8 @@ class SearchEngine:
                 pause = random.randint(0, 5)
                 msg = f"Pause for {pause} second"
                 await self._add_message(msg)
-                await asyncio.sleep(pause)
+                if self.enable_pause:
+                    await asyncio.sleep(pause)
             # Save results for one product
             msg = f'Total stores by requests "{" and ".join(search_list)}" - {len(one_product_stores)}'
             await self._add_message(msg)

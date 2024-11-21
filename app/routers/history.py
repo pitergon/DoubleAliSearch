@@ -6,9 +6,7 @@ from fastapi import Request, APIRouter, Depends, HTTPException, Security
 from psycopg2.extras import DictCursor
 from psycopg2.extensions import connection
 from starlette.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-
-from app.main import templates
+from app.resources import templates
 from app.database import get_db
 router = APIRouter()
 

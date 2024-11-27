@@ -4,6 +4,8 @@ import json
 import random
 import re
 from datetime import datetime
+from typing import Optional
+
 import httpx
 from httpx import HTTPStatusError, RequestError
 from bs4 import BeautifulSoup
@@ -11,15 +13,20 @@ from calmjs.parse import es5
 from calmjs.parse.unparsers.extractor import ast_to_dict
 from redis.asyncio import Redis
 
+
 # messages = []
 
 
 class SearchEngine:
+    """
+    Main class for searching products on Aliexpress
+    """
+
     def __init__(self, session_id: str, search_uuid: str, redis: Redis):
         self.session_id = session_id
         self.search_uuid = search_uuid
         self.redis = redis
-
+        self.task: Optional[asyncio.Task] = None  # Link to background task
         # self.queries_list = queries_list
         # self.messages_lock = messages_lock
         # self.messages = []
@@ -39,10 +46,8 @@ class SearchEngine:
         entry = await self.redis.get(f"{self.session_id}:{self.search_uuid}:stop_flag")
         return bool(int(entry)) if entry else False
 
-    def _get_fake_html(self,
-                        search: str,
-                        page_number: int = None,
-                        ) -> str:
+    @staticmethod
+    def _get_fake_html(search: str, page_number: int = None) -> str:
         """
         Returns fake html from previously saved txt files
 
@@ -62,7 +67,6 @@ class SearchEngine:
             print(e)
             html = ''
         return html
-
 
     async def _get_html(self,
                         search: str,
@@ -144,21 +148,18 @@ class SearchEngine:
                 response.raise_for_status()  # Raises an exception for 4xx/5xx responses
         except HTTPStatusError as e:
             msg = f"HTTP Error: {e.response.status_code}"
-            await self._add_message(msg)
+            await self.add_message(msg)
             return 'error'
         except RequestError as e:
             msg = f"Request Error: {str(e)}"
-            await self._add_message(msg)
+            await self.add_message(msg)
             return 'error'
 
         msg = f"Processing {response.url}"
-        await self._add_message(msg)
+        await self.add_message(msg)
         return response.text
 
-
-
-
-    async def _add_message(self, message: str):
+    async def add_message(self, message: str):
         """
         Add message to message queue about search status
         :param message:
@@ -181,7 +182,7 @@ class SearchEngine:
             page_count = int(soup.find_all("li", class_="comet-pagination-item")[-1].text.strip())
         except (AttributeError, ValueError):
             msg = "Can't find next page number"
-            await self._add_message(msg)
+            await self.add_message(msg)
             return 'error'
 
         return active_page + 1 if active_page < page_count else 0
@@ -191,7 +192,7 @@ class SearchEngine:
             page_count = int(soup.find_all("li", class_="comet-pagination-item")[-1].text.strip())
         except (AttributeError, ValueError):
             msg = "Failed search numbers of page"
-            await self._add_message(msg)
+            await self.add_message(msg)
             return 'error'
 
         return page_count
@@ -205,6 +206,7 @@ class SearchEngine:
             report_name = report_name[:-cut_symbols]
             filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
         with open(filename, 'w', encoding='utf-8') as f:
+            # noinspection PyTypeChecker
             json.dump(data, f, ensure_ascii=False, indent=4)
 
     @staticmethod
@@ -272,7 +274,7 @@ class SearchEngine:
             item_list = json_list["data"]["root"]["fields"]["mods"]["itemList"]["content"]
         except (json.JSONDecodeError, KeyError):
             msg = "Failed to get JSON from javascript with string methods"
-            await self._add_message(msg)
+            await self.add_message(msg)
 
         # If it doesn't work, we use parsing the AST tree of the js script to access the variables
 
@@ -284,11 +286,11 @@ class SearchEngine:
                     "data"]["data"]["root"]["fields"]["mods"]["itemList"]["content"]
             except KeyError:
                 msg = "Failed to parse javascript with calmjs methods"
-                await self._add_message(msg)
+                await self.add_message(msg)
                 return 'error'
 
-        try:
-            for item in item_list:
+        for item in item_list:
+            try:
                 product_id: int = int(self._get_nested_dict_item(item, "productId"))
                 products[product_id] = {
                     "product_id": product_id,
@@ -307,16 +309,18 @@ class SearchEngine:
                     "store_id": self._get_nested_dict_item(item, "store", "storeId"),
                     "store_link": f"https:{self._get_nested_dict_item(item, 'store', 'storeUrl')}",
                 }
-        except KeyError as e:
-            msg = f"Can't find key {e} in JSON"
-            await self._add_message(msg)
-            return 'error'
-        except ValueError as e:
-            msg = f"Can't convert into int {e} in JSON"
-            with open('.errors.txt', 'a') as file:
-                json.dump(item, file, ensure_ascii=False, indent=4)
-            await self._add_message(msg)
-            return 'error'
+            except KeyError as e:
+                msg = f"Can't find key {e} in JSON"
+                await self.add_message(msg)
+                return 'error'
+            except ValueError as e:
+                msg = f"Can't convert into int {e} in JSON"
+                # Save error item to file
+                with open('.errors.txt', 'a') as file:
+                    # noinspection PyTypeChecker
+                    json.dump(item, file, ensure_ascii=False, indent=4)
+                await self.add_message(msg)
+                return 'error'
         return products
 
     async def _parse_global_search_page(self, search: str, page: int = None, ) -> dict | str:
@@ -335,14 +339,13 @@ class SearchEngine:
         }
         :param search:
         :param page:
-        :param filter_result:
         :return:
         """
 
         html = await self._get_html(search, page)
         if html == 'error':
             msg = "Failed to get HTML"
-            await self._add_message(msg)
+            await self.add_message(msg)
             return 'error'
         soup = BeautifulSoup(html, features="lxml")
         try:
@@ -352,7 +355,7 @@ class SearchEngine:
             # save_script(soup=soup, script_file= 'script.js')
         except AttributeError:
             msg = "Failed to get JavaScript"
-            await self._add_message(msg)
+            await self.add_message(msg)
             return 'error'
         products = {}
         if script:
@@ -374,7 +377,7 @@ class SearchEngine:
                 products.items()))
             products = filtered_products
             msg = f"Filtered {len(products)} from {start_len} products"
-            await self._add_message(msg)
+            await self.add_message(msg)
 
         sorted_products = dict(sorted(products.items(),
                                       key=lambda item: item[1]['sale_price']))
@@ -398,9 +401,6 @@ class SearchEngine:
             },
         }
         :param search:
-        :param filter_result:
-        :param max_page:
-        :param max_zero_pages:
         :return:
         """
 
@@ -412,11 +412,11 @@ class SearchEngine:
 
             if next_page > self.max_page:
                 msg = f'The maximum number of pages "{self.max_page}" in search results for "{search}" has been reached. Exit'
-                await self._add_message(msg)
+                await self.add_message(msg)
                 break
             if zero_pages_count == self.max_zero_pages:
                 msg = f"{zero_pages_count} pages with fully filtered products. Exit"
-                await self._add_message(msg)
+                await self.add_message(msg)
                 break
 
             if await self.check_stop_flag():
@@ -428,7 +428,7 @@ class SearchEngine:
             while page_data == 'error' and retry:
                 pause = random.randint(0, 5)
                 msg = f"Pause for {pause} second"
-                await self._add_message(msg)
+                await self.add_message(msg)
                 if self.enable_pause:
                     await asyncio.sleep(pause)
                 page_data = await self._parse_global_search_page(search=search,
@@ -437,7 +437,7 @@ class SearchEngine:
 
             if page_data == 'error':
                 msg = "Failed to get page data"
-                await self._add_message(msg)
+                await self.add_message(msg)
                 return 'error'
 
             for product_id, product in page_data['products'].items():
@@ -446,7 +446,7 @@ class SearchEngine:
 
             page_count = page_data.get('page_count', None)
             msg = f'Processed {next_page}/{page_count} pages'
-            await self._add_message(msg)
+            await self.add_message(msg)
             next_page = page_data.get('next_page', None)
 
             if len(page_data['products']) == 0:
@@ -454,7 +454,7 @@ class SearchEngine:
 
             pause = random.randint(0, 5)
             msg = f"Pause for {pause} second"
-            await self._add_message(msg)
+            await self.add_message(msg)
             if self.enable_pause:
                 await asyncio.sleep(pause)
 
@@ -467,9 +467,9 @@ class SearchEngine:
                 stores[store_link] = {product_id: product}
 
         msg = f'Total stores for request "{search}": {len(stores)}'
-        await self._add_message(msg)
+        await self.add_message(msg)
         msg = f'Total products for request "{search}": {len(products)}'
-        await self._add_message(msg)
+        await self.add_message(msg)
 
         return stores
 
@@ -486,14 +486,13 @@ class SearchEngine:
                 },
             },
         }
-    
-    
+
         :param queries_list:
         :return:
         """
         # self.is_running = True
         msg = "Start searching"
-        await self._add_message(msg)
+        await self.add_message(msg)
 
         result_dict = {}
         all_stores: list[dict] = []
@@ -503,12 +502,12 @@ class SearchEngine:
                 if await self.check_stop_flag():
                     # self.is_running = False
                     msg = "Stop command received"
-                    await self._add_message(msg)
+                    await self.add_message(msg)
                     return None
                 temp_stores = await self._collect_product_stores(search=search)
                 if temp_stores == 'error':
                     msg = 'Failed to parse page'
-                    await self._add_message(msg)
+                    await self.add_message(msg)
                     break
                 # Results for different queries for one product save to one dictionary
                 for store, products in temp_stores.items():
@@ -518,18 +517,20 @@ class SearchEngine:
                         one_product_stores[store] = products
                 pause = random.randint(0, 5)
                 msg = f"Pause for {pause} second"
-                await self._add_message(msg)
+                await self.add_message(msg)
                 if self.enable_pause:
                     await asyncio.sleep(pause)
             # Save results for one product
             msg = f'Total stores by requests "{" and ".join(search_list)}" - {len(one_product_stores)}'
-            await self._add_message(msg)
+            await self.add_message(msg)
             report_name = f'{"_&_".join([search.replace(" ", "_") for search in search_list])}'
             self._save_report_as_json(one_product_stores, report_name)
 
             all_stores.append(one_product_stores)
 
-        intersection_stores = set.intersection(*(map(set, (d.keys() for d in all_stores))))
+        # Get intersection of stores in results
+        # intersection_stores = set.intersection(*map(set, (d.keys() for d in all_stores)))
+        intersection_stores = set.intersection(*(map(lambda d: set(d.keys()), all_stores)))
 
         for store in intersection_stores:
             result_dict[store]: dict = {}
@@ -542,8 +543,17 @@ class SearchEngine:
         # filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
         self._save_report_as_json(data=result_dict, report_name=report_name)
         msg = f'Total stores by requests "{" and ".join(["+".join(i) for i in queries_list])}" - {len(result_dict)}'
-        await self._add_message(msg)
+        await self.add_message(msg)
         msg = 'Search finished'
-        await self._add_message(msg)
+        await self.add_message(msg)
         # self.is_running = False
+        await self.save_search_results_to_redis(result_dict)
         return result_dict
+
+    async def save_search_results_to_redis(self, results: dict):
+        """
+        Save search result into Redis
+        :param results:
+        :return:
+        """
+        await self.redis.hset(f"{self.session_id}:{self.search_uuid}:results", **results)

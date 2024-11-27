@@ -1,105 +1,149 @@
 import asyncio
 import json
 import uuid
-from typing import Optional
+from datetime import datetime
+from re import search
+
 import psycopg2
 from fastapi import Request, APIRouter, Depends, HTTPException, Security
 from psycopg2.extras import DictCursor
 from psycopg2.extensions import connection
+from redis.asyncio import Redis
 from starlette.responses import HTMLResponse
-from app.database import get_db
-from app.models.search_model import SearchPageData
+from app.dependecies import get_db, get_redis
+from app.schemas.search_form import SearchForm, SearchFormSave
 from app.search_engine import SearchEngine
 from app.resources import templates
+from app.try_se import search_uuid
+
 router = APIRouter()
 
-@router.post("/search/start")
-async def search_start_endpoint(page_data: SearchPageData, request: Request):
+
+@router.post("/search/start", response_model=None)
+async def search_start_endpoint(page_data: SearchForm, request: Request, redis: Redis = Depends(get_redis)):
     """
     Start the search process
 
+    :param redis:
     :param page_data:
     :param request:
     :return:
     """
+    active_searches = request.app.state.active_searches
     session_id = request.state.session_id
-    if session_id in request.app.state.active_searches:
+    search_uuid = page_data.search_uuid
+    search_key = f"{session_id}:{search_uuid}"
+    if search_key in active_searches:
         return {"messages": "Search is already running"}
 
-    search_uuid = str(uuid.uuid4())
-    app = request.app
-    await create_search_task(app, page_data.queries_list, session_id, search_uuid)
+    #search_uuid = str(uuid.uuid4())
+    # background_tasks = request.app.state.background_tasks
+    await create_search_task(active_searches, redis, page_data.queries_list, session_id, search_uuid)
     return {"messages": "Search started",
             "search_uuid": search_uuid}
 
 
-async def create_search_task(app, queries_list: list[tuple], session_id, search_uuid):
+async def create_search_task(active_searches, redis, queries_list: list[tuple], session_id, search_uuid):
     """
-    Создает асинхронную фоновую задачу с процессом поиска
-    :param app: app
+    Creates async background task with search process
+
+    :param active_searches:
+    :param redis:
     :param queries_list:
     :param session_id:
     :param search_uuid:
     :return:
     """
-    search_task = asyncio.create_task(run_search(app.state, queries_list, session_id, search_uuid))
-    app.state.background_tasks.add(search_task)
-    search_task.add_done_callback(app.state.background_tasks.discard)
-
-
-async def run_search(app, queries_list: list[tuple], session_id, search_uuid):
-    """
-    Создает непосредственно экземпляр поискового движка и запускает поиск
-    :param app:
-    :param queries_list:
-    :param session_id:
-    :param search_uuid:
-    :return:
-    """
-    redis = app.state.redis
     se = SearchEngine(session_id, search_uuid, redis)
-    app.state.active_searches.setdefault(session_id, {}).update({search_uuid: se})
-    await redis.set(f"{session_id}:{search_uuid}:is_running", 1)
-    await redis.set(f"{session_id}:{search_uuid}:stop_flag", 0)
-    await redis.set(f"{session_id}:{search_uuid}:is_finished", 0)
-    results = await se.intersection_in_global_search(queries_list)
-    await redis.hset(f"{session_id}:{search_uuid}:results", **results)
+    search_task = asyncio.create_task(se.intersection_in_global_search(queries_list))
+    se.task = search_task
+    search_key = f"{session_id}:{search_uuid}"
+    active_searches[search_key] = se
+
+    def on_finish(_: asyncio.Task):
+        active_searches.pop(search_key, None)
+
+    search_task.add_done_callback(on_finish)
+
+
+# async def create_search_task_old(active_searches, background_tasks, redis, queries_list: list[tuple], session_id,
+#                                  search_uuid):
+#     """
+#     Creates async background task with search process
+#
+#     :param redis:
+#
+#     :param queries_list:
+#     :param session_id:
+#     :param search_uuid:
+#     :return:
+#     """
+#     search_task = asyncio.create_task(run_search(active_searches, redis, queries_list, session_id, search_uuid))
+#     background_tasks.add(search_task)
+#     search_task.add_done_callback(background_tasks.discard)
+#
+#
+# async def run_search_old(active_searches, redis, queries_list: list[tuple], session_id, search_uuid):
+#     """
+#     Creates search engine instance and starts search
+#     :param active_searches:
+#     :param redis:
+#     :param queries_list:
+#     :param session_id:
+#     :param search_uuid:
+#     :return:
+#     """
+#     #redis = app.state.redis
+#     se = SearchEngine(session_id, search_uuid, redis)
+#     active_searches.setdefault(session_id, {}).update({search_uuid: se})
+#     await redis.set(f"{session_id}:{search_uuid}:is_running", 1)
+#     await redis.set(f"{session_id}:{search_uuid}:stop_flag", 0)
+#     await redis.set(f"{session_id}:{search_uuid}:is_finished", 0)
+#     results = await se.intersection_in_global_search(queries_list)
+#     await redis.hset(f"{session_id}:{search_uuid}:results", **results)
 
 
 @router.post("/search/stop")
-async def search_stop_endpoint(request: Request, search_uuid):
+async def search_stop_endpoint(request: Request, search_uuid: str, redis: Redis = Depends(get_redis)):
     """
     Stop the search process
 
+    :param redis:
     :param request:
     :param search_uuid:
     :return:
     """
     session_id = request.state.session_id
+    search_key = f"{session_id}:{search_uuid}"
     active_searches = request.app.state.active_searches
-    if not (session_id in active_searches and search_uuid in active_searches[session_id]):
+    if search_key not in active_searches:
         raise HTTPException(status_code=404, detail=f"Search '{search_uuid}' not found.")
-    await stop_search(request.app, session_id, search_uuid)
+    se: SearchEngine = active_searches[search_key]
+    await se.add_message("Search stopped by user")
+    se.task.cancel()
+
     return {"status": "Search stopped by user"}
 
 
-async def stop_search(app, session_id, search_uuid):
-    """
-    Создает в Redis флаг остановки поиска stop_flag, при нахождении которого поисковый движок остановит процесс поиска
-    Удаляет запись из списка активный поисков
-    :param session_id:
-    :param search_uuid:
-    :return:
-    """
-    #print(f"Trying to stop {search_uuid}")
-    redis = app.state.redis
-    await redis.set(f"{session_id}:{search_uuid}:stop_flag", 1)
-    await redis.set(f"{session_id}:{search_uuid}:is_finished", 0)
-    del app.state.active_searches[session_id][search_uuid]
+# async def set_stop_flag(active_searches, redis, session_id, search_uuid):
+#     """
+#     Create stop flag in Redis and remove search from active searches
+#
+#     :param redis:
+#     :param app: FastAPI app object with state field
+#     :param session_id:
+#     :param search_uuid:
+#     :return:
+#     """
+#     #print(f"Trying to stop {search_uuid}")
+#     #redis = app.state.redis
+#     await redis.set(f"{session_id}:{search_uuid}:stop_flag", 1)
+#     await redis.set(f"{session_id}:{search_uuid}:is_finished", 0)
+#     del active_searches[session_id][search_uuid]
 
 
 @router.post("/search/save")
-async def search_save_endpoint(page_data: SearchPageData, db: connection = Depends(get_db)):
+async def search_save_endpoint(page_data: SearchFormSave, db: connection = Depends(get_db)):
     """
     Save search result into DB
 
@@ -167,19 +211,22 @@ async def get_search_by_id_endpoint(request: Request, search_uuid, db: connectio
 
 
 @router.get("/search/{search_uuid}/messages/")
-async def get_search_messages_endpoint(request: Request, search_uuid: str):
+async def get_search_messages_endpoint(request: Request, search_uuid: str, redis: Redis = Depends(get_redis)):
     """
     Return messages as answer for AJAX request for certain search
 
+    :param redis:
     :param request:
     :param search_uuid:
     :return:
     """
     session_id = request.state.session_id
-    redis = request.app.state.redis
+    #redis = request.app.state.redis
     messages = await get_messages(redis, session_id, search_uuid)
     response = {"messages": messages}
     results = await get_results(redis, session_id, search_uuid)
+    # Здесь нужно проверять все таки наличие результатов, может и флага завершения
+    # Потому что после отмены задачи результаты могут быть не записаны
     if results:
         response["results"] = results
     if await check_finished(redis, session_id, search_uuid):
@@ -210,6 +257,7 @@ async def check_finished(redis, session_id, search_uuid):
     """
     Checks that the search is finished
 
+    :param redis:
     :param session_id:
     :param search_uuid:
     :return:
@@ -223,6 +271,7 @@ async def get_results(redis, session_id, search_uuid):
     """
     Get search results from Redis
 
+    :param redis:
     :param session_id:
     :param search_uuid:
     :return:

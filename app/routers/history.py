@@ -7,8 +7,10 @@ from psycopg2.extras import DictCursor
 from psycopg2.extensions import connection
 from starlette.responses import HTMLResponse
 from app.resources import templates
-from app.database import get_db
+from app.dependecies import get_db
+
 router = APIRouter()
+
 
 @router.get("/history/{page}", response_class=HTMLResponse)
 async def history_endpoint(request: Request,

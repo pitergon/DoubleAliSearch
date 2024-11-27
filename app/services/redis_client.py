@@ -4,6 +4,9 @@ import redis.asyncio as redis
 
 
 class RedisClient:
+    """
+    Singleton class for Redis connection
+    """
     _instance: Optional["RedisClient"] = None
 
     def __init__(self):

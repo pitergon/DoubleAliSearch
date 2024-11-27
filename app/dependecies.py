@@ -1,10 +1,10 @@
-from app.database import get_db_connection
-from redis_client import RedisClient
+from app.services.database import get_db_connection
+from app.services.redis_client import RedisClient
 
 
 def get_redis():
     """
-    FastAPI-зависимость для получения подключения к Redis, используя singleton-класс RedisClient.
+    FastAPI dependency to get connection to Redis using singleton class RedisClient.
     :return:
     """
     redis_client = RedisClient()
@@ -12,7 +12,9 @@ def get_redis():
 
 
 def get_db():
-    """FastAPI-зависимость для получения подключения к базе данных."""
+    """
+    FastAPI dependency to get connection to database.
+    """
     conn = get_db_connection()
     try:
         yield conn

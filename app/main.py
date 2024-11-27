@@ -1,11 +1,8 @@
-import json
-import math
+
 import os
-import sqlite3
-from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, Request, HTTPException
+from fastapi import FastAPI, Depends, Request
 from starlette.responses import HTMLResponse
 from starlette.datastructures import State
 import uuid
@@ -66,12 +63,10 @@ async def get_user_data(session_id):
 
 @app.on_event("startup")
 async def startup_event():
-    active_searches: dict[str, dict[str, SearchEngine]] = {}
+    active_searches: dict[str, SearchEngine] = {}
     app.state.active_searches = active_searches
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    redis = get_redis()
-    await redis.close()
-
+    await get_redis().close()

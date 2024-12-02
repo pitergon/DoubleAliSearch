@@ -1,28 +1,31 @@
+import asyncio
 
-import os
+#from dotenv import load_dotenv
+#load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 
-from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from starlette.responses import HTMLResponse
 from starlette.datastructures import State
 import uuid
 
+from app.resources import static_files, templates
 from app.dependecies import get_redis
 from app.search_engine import SearchEngine
-from app.routers import history, search
-from app.resources import BASE_DIR, static_files, templates
-
-load_dotenv(os.path.join(BASE_DIR, '.env'))
+from app.routers import history, search, users
 
 app = FastAPI()
 if not app.state:
     app.state = State()
+active_searches: dict[str, SearchEngine] = {}
+app.state.active_searches = active_searches
 
 app.mount("/static", static_files, name="static")
-app.include_router(search.router, tags=["search"], dependencies=[Depends(get_redis)])
+app.include_router(search.router, tags=["search"])
 app.include_router(history.router, tags=["history"])
 
-app.state.background_tasks = set()
+app.include_router(users.router, tags=["users"])
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -32,7 +35,47 @@ async def index_endpoint(request: Request):
     :param request:
     :return:
     """
-    return templates.TemplateResponse("search.html", {"request": request})
+
+    return templates.TemplateResponse("search.j2", {"request": request, })
+
+
+@app.get("/test", response_class=HTMLResponse)
+async def index_endpoint(request: Request):
+    """
+    Main page
+    :param request:
+    :return:
+    """
+    print(request.headers)
+    return templates.TemplateResponse("test.j2", {"request": request, })
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, e: HTTPException):
+    error_details = e.detail if e.detail else "An error occurred"
+    return templates.TemplateResponse(
+        "error.j2",
+        {
+            "request": request,
+            "error_details": error_details,
+            "status_code": e.status_code,
+        },
+        status_code=e.status_code
+    )
+
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, e: ValidationError):
+    error_details = [error.get('ctx', {}).get('reason', 'Unknown error') for error in e.errors()]
+    return templates.TemplateResponse(
+        "error.j2",
+        {
+            "request": request,
+            "error_details": error_details,
+            "status_code": 400,
+        },
+        status_code=400,
+    )
 
 
 @app.middleware("http")
@@ -50,6 +93,16 @@ async def add_session_middleware(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def add_token_to_header(request: Request, call_next):
+    access_token = request.cookies.get("access_token")
+    if access_token:
+        #request.headers["Authorization"] = access_token
+        request.headers.__dict__["_list"].append((b"authorization", access_token.encode()))
+    response = await call_next(request)
+    return response
+
+
 def get_session_id(request: Request):
     session_id = request.cookies.get("session_id")
     if not session_id:
@@ -61,10 +114,16 @@ async def get_user_data(session_id):
     return {"session_id": session_id}
 
 
+async def scheduled_redis_clear_task():
+    redis = await get_redis()
+    while True:
+        await asyncio.sleep(86400)
+        await redis.delete_incomplete_searches()
+
+
 @app.on_event("startup")
 async def startup_event():
-    active_searches: dict[str, SearchEngine] = {}
-    app.state.active_searches = active_searches
+    asyncio.create_task(scheduled_redis_clear_task())
 
 
 @app.on_event("shutdown")

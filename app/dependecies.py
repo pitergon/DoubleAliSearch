@@ -1,4 +1,4 @@
-from app.services.database import get_db_connection
+from app.services.database import get_db as database_get_db
 from app.services.redis_client import RedisClient
 
 
@@ -13,10 +13,6 @@ def get_redis():
 
 def get_db():
     """
-    FastAPI dependency to get connection to database.
+    Wrapper for FastAPI dependency to get database connection for unified usage of dependencies
     """
-    conn = get_db_connection()
-    try:
-        yield conn
-    finally:
-        conn.close()
+    yield from database_get_db()

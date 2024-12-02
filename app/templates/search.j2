@@ -1,19 +1,7 @@
-<!DOCTYPE html>
-<html lang="en" class="h-full">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Double AliExpress Search</title>
-    <link rel="icon" href="{{ url_for('static', path='favicon.ico') }}" type="image/x-icon">
-    <link rel="shortcut icon" href="{{ url_for('static', path='favicon.ico') }}" type="image/x-icon">
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body class="h-full bg-gray-200 text-gray-900 overflow-hidden">
-    <header class="bg-gradient-to-r from-red-600 to-yellow-500 text-white py-3 text-center">
-      <h1 class="text-3xl font-bold"><a href="/" class="text-white">Double AliExpress Search</a></h1>
-    </header>
-    <!-- main content -->
-    <main class="container mx-auto px-4 pt-4 pb-7 flex flex-col h-[calc(100vh-3rem)] space-y-4">
+{% extends "base.j2" %}
+{% block title %} Double AliExpress Search {% endblock %}
+{% block content %}
+    <main class="container mx-auto px-4 pt-4 pb-7 flex flex-col space-y-4 flex-grow">
       <!--search lists-->
       <section class="bg-white flex flex-col shadow-lg rounded-lg py-2 flex-none">
         <h3 class="text-xl px-4 font-semibold text-red-600">Product names</h3>
@@ -21,16 +9,18 @@
           <!-- list 1 -->
           <div class="flex flex-col flex-grow basis-1/2 px-4">
             <div class="flex flex-row">
+              <label for="input1"></label>
               <input
                 type="text"
                 class="flex-grow border text-red-600 border-red-600 p-2 rounded-md focus:outline-none focus:border-yellow-500"
                 id="input1"
                 placeholder="Add to List 1"
+                value="7260ac"
               />
               <button
                 type="button"
+                id="add-to-list1"
                 class="ml-4 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
-                onclick="addOption('list1', 'input1')"
               >
                 Add to List 1
               </button>
@@ -38,9 +28,9 @@
             <div class="flex-grow w-full mt-1" id="select-container-1">
               <p class="text-red-600">List of first product names (double click to delete)</p>
               <div class="overflow-hidden rounded-md mt-2 border border-red-600">
-                <select
-                  id="list1"
-                  name="list1[]"
+                <label for="namesList1"></label><select
+                  id="namesList1"
+                  name="names_list1[]"
                   size="2"
                   multiple
                   class="w-full text-red-600 p-2 focus:outline-none focus:border-yellow-500 overflow-auto"
@@ -55,16 +45,18 @@
           <!-- list 2 -->
           <div class="flex flex-col flex-grow basis-1/2 px-4">
             <div class="flex flex-row">
-              <input
+              <label for="input2"></label><input
                 type="text"
                 class="flex-grow text-red-600 border border-red-600 p-2 rounded-md focus:outline-none focus:border-yellow-500"
                 id="input2"
                 placeholder="Add to List 2"
+                value="DW5823e"
               />
               <button
                 type="button"
+                id="add-to-list2"
                 class="ml-4 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
-                onclick="addOption('list2', 'input2')"
+                onclick="addOption('namesList2', 'input2')"
               >
                 Add to List 2
               </button>
@@ -72,9 +64,9 @@
             <div class="flex-grow w-full mt-1" id="select-container-2">
               <p class="text-red-600">List of second product names (double click to delete)</p>
               <div class="overflow-hidden rounded-md mt-2 border border-red-600">
-                <select
-                  id="list2"
-                  name="list2[]"
+                <label for="namesList2"></label><select
+                  id="namesList2"
+                  name="names_list2[]"
                   size="2"
                   multiple
                   class="w-full text-red-600 p-2 focus:outline-none focus:border-yellow-500 overflow-auto"
@@ -95,9 +87,9 @@
             <div>
               <button
                 type="button"
-                class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
-                onclick="validateAndSearch()"
+                class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300 disabled:bg-red-400 disabled:opacity-50"
                 id="search-button"
+                {% if is_active_search %} disabled {% endif %}
               >
                 Search
               </button>
@@ -107,15 +99,13 @@
             <button
               type="button"
               class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
-              onclick="stop_search()"
-              id="stopButton"
+              id="stop-button"
             >
               Stop
             </button>
             <button
               type="button"
               class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300 disabled:bg-red-400 disabled:opacity-50"
-              onclick="save_search()"
               id="save-button"
               disabled
             >
@@ -139,8 +129,15 @@
         </div>
       </section>
     </main>
+  {% endblock %}
+{% block hidden %}
     <input type="hidden" id="messages-list" name="messages-list" value="{{ messages }}">
     <input type="hidden" id="results-data" name="results-data" value="{{ results }}">
+    {% if is_active_search %}
+      <script>const isActiveSearch = true;</script>
+    {% else %}
+      <script>const isActiveSearch = false;</script>
+    {% endif %}
     <script src="{{ url_for('static', path='js/script.js') }}"></script>
-  </body>
-</html>
+{% endblock %}
+

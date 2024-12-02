@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full" data-language="jinja2">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Double AliExpress Search{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', path='favicon.ico') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ url_for('static', path='favicon.ico') }}" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-gray-200 text-gray-900 flex flex-col">
+    <header class="bg-gradient-to-r from-red-600 to-yellow-500 text-white py-3 text-center">
+      <h1 class="text-3xl font-bold"><a href="/" class="text-white">Double AliExpress Search</a></h1>
+    </header>
+
+    <div class="container mx-auto px-4 pt-4 pb-7 flex flex-col md:flex-row md:space-x-4">
+      {% block sidebar %}
+      <aside class="bg-white flex flex-col shadow-lg rounded-lg py-2">
+      <nav class="bg-white flex flex-col shadow-lg rounded-lg py-2">
+        <h3 class="text-xl px-4 font-semibold text-red-600">Menu</h3>
+        <ul class="flex flex-col mt-4">
+           <li class="py-1 px-4">
+              <a href="/test" class="text-red-600 hover:text-red-800 font-bold text-lg">test</a>
+            </li>
+          <li class="py-1 px-4">
+            <a href="/users/register" class="text-red-600 hover:text-red-800 font-bold text-lg">Register</a>
+          </li>
+
+          <li class="py-1 px-4">
+            <a href="/users/login" class="text-red-600 hover:text-red-800 font-bold text-lg">Login</a>
+          </li>
+
+          <li class="py-1 px-4">
+            <a href="/search" class="text-red-600 hover:text-red-800 font-bold text-lg">Search</a>
+          </li>
+          <li class="py-1 px-4">
+            <a href="/history" class="text-red-600 hover:text-red-800 font-bold text-lg">My searhes</a>
+          </li>
+          <li class="py-1 px-4">
+            <a href="/history" class="text-red-600 hover:text-red-800 font-bold text-lg">Common history</a>
+          </li>
+          <li class="py-1 px-4">
+            <a href="/users/logout" class="text-red-600 hover:text-red-800 font-bold text-lg">Logout</a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+      {% endblock %}
+      {% block content %}
+       <!-- Main content  -->
+      {% endblock %}
+    </div>
+    <footer class="bg-gradient-to-r from-red-600 to-yellow-500 text-white py-2 text-center text-sm">
+      <p>&copy; 2024 Double AliExpress Search</p>
+    </footer>
+    {% block hidden %}
+    {% endblock %}
+  </body>
+</html>

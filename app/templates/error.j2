@@ -1,0 +1,17 @@
+{% extends "base.j2" %}
+{% block title %} Error {% endblock %}
+{% block sidebar %}{% endblock %}
+{% block content %}
+  <main class="container mx-auto px-4 pt-4 pb-7 flex flex-col space-y-4 flex-grow">
+  <section class="bg-white flex flex-col shadow-lg rounded-lg py-2 flex-none">
+    <h1 class="text-xl px-4 font-semibold text-red-600 text-center">Error</h1>
+    {% if error_details %}
+      <p class="text-red-600 text-center">{{ error_details }}</p>
+    {% endif %}
+
+  </section>
+  <section class="bg-white flex flex-col shadow-lg rounded-lg py-2 flex-none">
+    <p class="text-red-600 text-center text-xl"><a href="/">Go to Main Page</a></p>
+  </section>
+</main>
+{% endblock %}

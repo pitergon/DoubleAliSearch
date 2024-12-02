@@ -14,15 +14,13 @@ from calmjs.parse.unparsers.extractor import ast_to_dict
 from redis.asyncio import Redis
 
 
-# messages = []
-
-
 class SearchEngine:
     """
     Main class for searching products on Aliexpress
     """
 
     def __init__(self, session_id: str, search_uuid: str, redis: Redis):
+
         self.session_id = session_id
         self.search_uuid = search_uuid
         self.redis = redis
@@ -39,8 +37,10 @@ class SearchEngine:
         self.max_zero_pages = 2
         # Rechecking the product name for compliance with the search query
         self.filter_result = True
-        self.enable_pause = True
+        self.enable_pause = False
+        self.max_pause_time = 5
         self.use_fake_html = True
+        self.enable_save_to_json = False
 
     async def check_stop_flag(self):
         entry = await self.redis.get(f"{self.session_id}:{self.search_uuid}:stop_flag")
@@ -81,6 +81,7 @@ class SearchEngine:
         """
 
         if self.use_fake_html:
+            self.max_page = 3
             return self._get_fake_html(search, page_number)
 
         url = f"{self.base_url}-{search.replace(" ", "-").lower()}.html"
@@ -167,8 +168,8 @@ class SearchEngine:
         """
 
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        await self.redis.rpush(f"{self.session_id}:{self.search_uuid}", f"{time_str} - {message}")
-        print(f"{time_str} - {message}")
+        await self.redis.rpush(f"{self.session_id}:{self.search_uuid}:messages", f"{time_str} - {message}")
+        print(f"{time_str} - {self.search_uuid[-4:]} - {message}")
 
     async def _get_next_page_number(self, soup: BeautifulSoup) -> int | str:
         """
@@ -426,13 +427,8 @@ class SearchEngine:
             page_data = await self._parse_global_search_page(search=search, page=next_page)
 
             while page_data == 'error' and retry:
-                pause = random.randint(0, 5)
-                msg = f"Pause for {pause} second"
-                await self.add_message(msg)
-                if self.enable_pause:
-                    await asyncio.sleep(pause)
-                page_data = await self._parse_global_search_page(search=search,
-                                                                 page=next_page)
+                await self.pause()
+                page_data = await self._parse_global_search_page(search=search, page=next_page)
                 retry -= 1
 
             if page_data == 'error':
@@ -452,11 +448,7 @@ class SearchEngine:
             if len(page_data['products']) == 0:
                 zero_pages_count += 1
 
-            pause = random.randint(0, 5)
-            msg = f"Pause for {pause} second"
-            await self.add_message(msg)
-            if self.enable_pause:
-                await asyncio.sleep(pause)
+            await self.pause()
 
         stores = {}
         for product_id, product in products.items():
@@ -472,6 +464,13 @@ class SearchEngine:
         await self.add_message(msg)
 
         return stores
+
+    async def pause(self):
+        if self.enable_pause:
+            pause = random.randint(0, self.max_pause_time)
+            msg = f"Pause for {pause} second"
+            await self.add_message(msg)
+            await asyncio.sleep(pause)
 
     async def intersection_in_global_search(self, queries_list: list):
         """
@@ -515,16 +514,13 @@ class SearchEngine:
                         one_product_stores[store] = one_product_stores[store] | products
                     else:
                         one_product_stores[store] = products
-                pause = random.randint(0, 5)
-                msg = f"Pause for {pause} second"
-                await self.add_message(msg)
-                if self.enable_pause:
-                    await asyncio.sleep(pause)
+                await self.pause()
             # Save results for one product
             msg = f'Total stores by requests "{" and ".join(search_list)}" - {len(one_product_stores)}'
             await self.add_message(msg)
-            report_name = f'{"_&_".join([search.replace(" ", "_") for search in search_list])}'
-            self._save_report_as_json(one_product_stores, report_name)
+            if self.enable_save_to_json:
+                report_name = f'{"_&_".join([search.replace(" ", "_") for search in search_list])}'
+                self._save_report_as_json(one_product_stores, report_name)
 
             all_stores.append(one_product_stores)
 
@@ -538,10 +534,10 @@ class SearchEngine:
                 if store in one_product_stores:
                     result_dict[store].update(one_product_stores[store])
 
-        # Save results to JSON file
-        report_name = f'results_{"_&_".join(["+".join([search.replace(" ", "_") for search in search_list]) for search_list in queries_list])}'
-        # filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
-        self._save_report_as_json(data=result_dict, report_name=report_name)
+        if self.enable_save_to_json:
+            # Save results to JSON file
+            report_name = f'results_{"_&_".join(["+".join([search.replace(" ", "_") for search in search_list]) for search_list in queries_list])}'
+            self._save_report_as_json(data=result_dict, report_name=report_name)
         msg = f'Total stores by requests "{" and ".join(["+".join(i) for i in queries_list])}" - {len(result_dict)}'
         await self.add_message(msg)
         msg = 'Search finished'
@@ -556,4 +552,15 @@ class SearchEngine:
         :param results:
         :return:
         """
-        await self.redis.hset(f"{self.session_id}:{self.search_uuid}:results", **results)
+
+        serialized_results = {
+            key: json.dumps(value) if isinstance(value, (dict, list)) else value
+            for key, value in results.items()
+        }
+
+        sanitized_results = {
+            key: ("" if value is None else str(value) if not isinstance(value, (str, bytes, int, float)) else value)
+            for key, value in serialized_results.items()
+        }
+
+        await self.redis.hset(f"{self.session_id}:{self.search_uuid}:results", mapping=sanitized_results)

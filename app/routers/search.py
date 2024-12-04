@@ -200,7 +200,7 @@ async def get_active_search_by_id_endpoint(request: Request,
 
 
 @router.get("/search", response_class=HTMLResponse)
-async def get_search_page_endpoint(request: Request):
+async def get_search_page_endpoint(request: Request, current_user: User = Depends(get_current_user)):
     """
     Main page
     :param request:

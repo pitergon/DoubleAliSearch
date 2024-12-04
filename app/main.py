@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
         await redis.close()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 if not app.state:
     app.state = State()
 active_searches: dict[str, SearchEngine] = {}

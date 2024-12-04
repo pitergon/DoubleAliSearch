@@ -1,3 +1,4 @@
+import configparser
 import os
 import asyncio
 import json
@@ -14,6 +15,7 @@ from calmjs.parse.unparsers.extractor import ast_to_dict
 from redis.asyncio import Redis
 
 
+
 class SearchEngine:
     """
     Main class for searching products on Aliexpress
@@ -21,35 +23,52 @@ class SearchEngine:
 
     def __init__(self, user_id: str, search_uuid: str, redis: Redis):
 
+        self.enable_save_to_json = None
+        self.use_fake_html = None
+        self.max_pause_time = None
+        self.enable_pause = None
+        self.filter_result = None
+        self.max_zero_pages = None
+        self.max_page = None
+        self.base_url = None
         self.user_id = user_id
         self.search_uuid = search_uuid
         self.redis = redis
         self.task: Optional[asyncio.Task] = None  # Link to background task
-        # self.queries_list = queries_list
-        # self.messages_lock = messages_lock
-        # self.messages = []
-        # self.stop_flag = False
-        # self.is_running = False
-        self.base_url = 'https://www.aliexpress.com/w/wholesale'
-        # Max number of result pages for parsing. After 8 pages results are often  not relevant
-        self.max_page = 6
-        # Max number of pages without new products in search result
-        self.max_zero_pages = 2
-        # Rechecking the product name for compliance with the search query
-        self.filter_result = True
-        self.enable_pause = False
-        self.max_pause_time = 5
-        self.use_fake_html = True
-        self.enable_save_to_json = False
 
-    async def check_stop_flag(self):
-        entry = await self.redis.get(f"{self.user_id}:{self.search_uuid}:stop_flag")
-        return bool(int(entry)) if entry else False
+        # Load configuration from file
+        self.load_config('config.ini')
+
+    def load_config(self, config_file: str):
+        """
+        Load configuration from file
+        """
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        config = configparser.ConfigParser()
+        config.read(os.path.join(BASE_DIR, config_file))
+
+        self.base_url = config.get('settings', 'base_url', fallback='https://www.aliexpress.com/w/wholesale')
+        # Max number of result pages for parsing. After 8 pages results are often  not relevant
+        self.max_page = config.getint('settings', 'max_page', fallback=6)
+        # Max number of pages without new products in search result
+        self.max_zero_pages = config.getint('settings', 'max_zero_pages', fallback=2)
+        # Rechecking the product name for compliance with the search query
+        self.filter_result = config.getboolean('settings', 'filter_result', fallback=True)
+        # Enable pause between requests
+        self.enable_pause = config.getboolean('settings', 'enable_pause', fallback=True)
+        # Max pause time in seconds
+        self.max_pause_time = config.getint('settings', 'max_pause_time', fallback=5)
+        # Use fake html from previously saved txt files
+        self.use_fake_html = config.getboolean('settings', 'use_fake_html', fallback=False)
+        # Enable save results to JSON file
+        self.enable_save_to_json = config.getboolean('settings', 'enable_save_to_json', fallback=False)
 
     @staticmethod
     def _get_fake_html(search: str, page_number: int = None) -> str:
         """
         Returns fake html from previously saved txt files
+        Only values "DW5823e" and "7260ac" are available for search with fake html
+        Or you can add your own files with html
 
         :param search:
         :param page_number:
@@ -188,7 +207,12 @@ class SearchEngine:
 
         return active_page + 1 if active_page < page_count else 0
 
-    async def _get_page_count(self, soup: BeautifulSoup):
+    async def _get_page_count(self, soup: BeautifulSoup) -> int | str:
+        """
+        Returns the number of pages in the search results
+        :param soup:
+        :return:
+        """
         try:
             page_count = int(soup.find_all("li", class_="comet-pagination-item")[-1].text.strip())
         except (AttributeError, ValueError):
@@ -200,6 +224,12 @@ class SearchEngine:
 
     @staticmethod
     def _save_report_as_json(data: dict, report_name: str):
+        """
+        Save result dictionary to JSON file
+        :param data:
+        :param report_name:
+        :return:
+        """
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         filename = os.path.join(BASE_DIR, 'json_files', f'{report_name}.json')
         if len(filename) > 250:
@@ -420,10 +450,6 @@ class SearchEngine:
                 await self.add_message(msg)
                 break
 
-            if await self.check_stop_flag():
-                # msg = "Stop command received. Exit"
-                # await self._add_message(msg)
-                break
             page_data = await self._parse_global_search_page(search=search, page=next_page)
 
             while page_data == 'error' and retry:
@@ -498,11 +524,6 @@ class SearchEngine:
         for search_list in queries_list:
             one_product_stores: dict = {}
             for search in search_list:
-                if await self.check_stop_flag():
-                    # self.is_running = False
-                    msg = "Stop command received"
-                    await self.add_message(msg)
-                    return None
                 temp_stores = await self._collect_product_stores(search=search)
                 if temp_stores == 'error':
                     msg = 'Failed to parse page'
@@ -548,7 +569,7 @@ class SearchEngine:
 
     async def save_search_results_to_redis(self, results: dict):
         """
-        Save search result into Redis
+        Save search result into Redis. All nested dictionaries are converted to JSON strings
         :param results:
         :return:
         """

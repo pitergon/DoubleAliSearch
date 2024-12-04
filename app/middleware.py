@@ -4,7 +4,7 @@ from fastapi import Request, HTTPException
 from datetime import timedelta
 from jose import ExpiredSignatureError
 
-from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
+from app.core.jwt_config import ACCESS_TOKEN_EXPIRE_MINUTES
 from app.core.jwt import verify_token, create_access_token
 
 

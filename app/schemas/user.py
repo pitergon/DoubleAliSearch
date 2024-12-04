@@ -1,7 +1,7 @@
 from typing import Self
 
 from fastapi import Form, HTTPException
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, root_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class UserBase(BaseModel):
@@ -30,7 +30,7 @@ class UserCreate(UserBase):
                 password: str = Form(...),
                 confirm_password: str = Form(...),
                 ) -> Self:
-        return cls(username=username,email=email,password=password,confirm_password=confirm_password)
+        return cls(username=username, email=email, password=password, confirm_password=confirm_password)
 
 
 class UserResponse(UserBase):

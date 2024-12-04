@@ -41,18 +41,14 @@ async def index_endpoint(request: Request, current_user: User = Depends(get_curr
 
 
 
-@app.get("/test", response_class=HTMLResponse)
-async def index_endpoint(request: Request):
-    """
-    Main page
-    :param request:
-    :return:
-    """
-    return templates.TemplateResponse("test.j2", {"request": request, })
-
-
 @app.exception_handler(404)
 async def not_found_exception_handler(request: Request, e: Exception):
+    """
+    Helper function to handle 404 errors and return error page
+    :param request:
+    :param e:
+    :return:
+    """
     return templates.TemplateResponse(
         "error.j2",
         {"request": request, "error_details": "Page not found", "status_code": 404},
@@ -62,6 +58,12 @@ async def not_found_exception_handler(request: Request, e: Exception):
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, e: HTTPException):
+    """
+    Helper function to handle HTTP exceptions and return error page
+    :param request:
+    :param e:
+    :return:
+    """
     if e.status_code == 401:
         return RedirectResponse(url="/users/login")
     error_details = e.detail if e.detail else "An error occurred"
@@ -78,6 +80,12 @@ async def http_exception_handler(request: Request, e: HTTPException):
 
 @app.exception_handler(ValidationError)
 async def validation_exception_handler(request: Request, e: ValidationError):
+    """
+    Helper function to handle validation errors and return error page
+    :param request:
+    :param e:
+    :return:
+    """
     error_details = [error.get('ctx', {}).get('reason', 'Unknown error') for error in e.errors()]
     return templates.TemplateResponse(
         "error.j2",
@@ -91,6 +99,10 @@ async def validation_exception_handler(request: Request, e: ValidationError):
 
 
 async def scheduled_redis_clear_task():
+    """
+    Scheduled task to clear incomplete searches from Redis
+    :return:
+    """
     redis = await get_redis()
     while True:
         await asyncio.sleep(86400)
@@ -99,9 +111,17 @@ async def scheduled_redis_clear_task():
 
 @app.on_event("startup")
 async def startup_event():
+    """
+    Startup event to create scheduled task for clearing incomplete searches in Redis
+    :return:
+    """
     asyncio.create_task(scheduled_redis_clear_task())
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    """
+    Shutdown event to close Redis connection
+    :return:
+    """
     await get_redis().close()

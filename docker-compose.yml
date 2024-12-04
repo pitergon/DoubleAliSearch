@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:latest
     container_name: postgres
     env_file:
       - ./app/.env

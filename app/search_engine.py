@@ -24,7 +24,6 @@ class SearchEngine:
     def __init__(self, user_id: str, search_uuid: str, redis: Redis):
 
         self.enable_save_to_json = None
-        self.use_fake_html = None
         self.max_pause_time = None
         self.enable_pause = None
         self.filter_result = None
@@ -38,6 +37,9 @@ class SearchEngine:
 
         # Load configuration from file
         self.load_config('config.ini')
+
+        # Use fake html from previously saved txt files
+        self._use_fake_html = False
 
     def load_config(self, config_file: str):
         """
@@ -58,8 +60,7 @@ class SearchEngine:
         self.enable_pause = config.getboolean('settings', 'enable_pause', fallback=True)
         # Max pause time in seconds
         self.max_pause_time = config.getint('settings', 'max_pause_time', fallback=5)
-        # Use fake html from previously saved txt files
-        self.use_fake_html = config.getboolean('settings', 'use_fake_html', fallback=False)
+
         # Enable save results to JSON file
         self.enable_save_to_json = config.getboolean('settings', 'enable_save_to_json', fallback=False)
 
@@ -99,7 +100,7 @@ class SearchEngine:
         :return:
         """
 
-        if self.use_fake_html:
+        if self._use_fake_html:
             self.max_page = 3
             return self._get_fake_html(search, page_number)
 

@@ -23,7 +23,7 @@ router = APIRouter()
 @router.get("/history/{page}", response_class=HTMLResponse)
 async def history_endpoint(request: Request,
                            page: Optional[int] = 1,
-                           limit: Optional[int] = 2,
+                           limit: Optional[int] = 5,
                            db: Session = Depends(get_db),
                            current_user: User = Depends(get_current_user)):
     """
@@ -37,6 +37,16 @@ async def history_endpoint(request: Request,
     """
 
     total_records = db.query(func.count(Search.id)).filter(Search.user_id == current_user.id).scalar()
+
+    if total_records == 0:
+        return templates.TemplateResponse(request, "history.j2", {
+            "searches": [],
+            "pagination": {},
+            "current_page": 1,
+            "total_pages": 1,
+            "total_records": total_records,
+        })
+
     total_pages = math.ceil(total_records / limit)
 
     if page < 1:
@@ -86,8 +96,7 @@ async def history_endpoint(request: Request,
             pagination["last"] = total_pages
 
     # Возврат шаблона с данными
-    return templates.TemplateResponse("history.j2", {
-        "request": request,
+    return templates.TemplateResponse(request, "history.j2", {
         "searches": searches,
         "pagination": pagination,
         "current_page": page,
@@ -117,53 +126,9 @@ async def get_saved_search_by_id_endpoint(request: Request,
     if not search:
         raise HTTPException(status_code=404, detail="Search not found")
 
-    return templates.TemplateResponse("search.j2", {
-        "request": request,
+    return templates.TemplateResponse(request, "search.j2", {
         "messages": json.dumps(search.messages),
         "results": json.dumps(search.results),
         "names_list1": search.names_list1,
         "names_list2": search.names_list2
     })
-
-# @router.get("/history/search/{search_uuid}", response_class=HTMLResponse)
-# async def get_saved_search_by_id_endpoint(request: Request,
-#                                           search_uuid: str,
-#                                           db: Session = Depends(get_db),
-#                                           current_user: User = Depends(get_current_user)
-#                                           ):
-#     """
-#     Page with results of specified search
-#     :param current_user:
-#     :param request:
-#     :param search_uuid:
-#     :param db:
-#     :return:
-#     """
-#
-#
-#
-#     query = """
-#     SELECT  messages, results, names_list1, names_list2
-#     FROM history
-#     WHERE search_uuid = %s
-#     """
-#
-#     try:
-#         with db.cursor() as cursor:
-#             cursor.execute(query, (search_uuid,))
-#             result = cursor.fetchone()
-#     except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-#         print(f"Database error: {e}")
-#
-#     if result:
-#         messages, results, names_list1, names_list2 = result
-#     else:
-#         messages = results = names_list1 = names_list2 = None
-#
-#     return templates.TemplateResponse("search.j2", {
-#         "request": request,
-#         "messages": json.dumps(messages),
-#         "results": json.dumps(results),
-#         "names_list1": names_list1,
-#         "names_list2": names_list2
-#     })

@@ -37,6 +37,6 @@ __pycache__/
 #Ignore folder wth json results
 /app/json_files/*
 !/app/json_files/.gitkeep
-test_data/*
+/app/test_data/*
 
 TODO.md

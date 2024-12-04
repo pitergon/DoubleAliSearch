@@ -24,7 +24,7 @@ router = APIRouter()
 
 @router.get("/users/register")
 async def get_register_page_endpoint(request: Request):
-    return templates.TemplateResponse("register.j2", {"request": request, })
+    return templates.TemplateResponse(request, "register.j2")
 
 
 @router.post("/users/register", status_code=201)
@@ -55,14 +55,17 @@ async def create_user_endpoint(request: Request, registration_form: UserCreate =
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     return templates.TemplateResponse(
-        "success.j2", {"request": request,
-                       "success_details": "User registered successfully! Now you can <a href='/users/login'>login.</a>"}
+        request,
+        "success.j2",
+        {
+         "success_details": "User registered successfully! Now you can <a href='/users/login'>login.</a>"
+         },
+        status_code=201
     )
-
 
 @router.get("/users/login")
 async def get_login_page_endpoint(request: Request):
-    return templates.TemplateResponse("login.j2", {"request": request, })
+    return templates.TemplateResponse(request,"login.j2")
 
 
 @router.post("/users/login")
@@ -119,30 +122,10 @@ async def access_token_endpoint(request: Request,
     )
 
 
-@router.get("/users/me", response_model=UserResponse)
-async def read_users_me_endpoint(
-        current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
-    return current_user
-
-
-@router.delete("/users/deactivate/{username}")
-async def deactivate_user_endpoint(username: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    try:
-        user.disabled = True
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    return {"msg": "User deactivated"}
-
 
 @router.get("/users/logout")
 async def logout(request: Request):
-    response = RedirectResponse(url="/users/login")
+    response = RedirectResponse(url="/users/login", status_code=303)
     response.delete_cookie(key="access_token")
     response.delete_cookie(key="refresh_token")
 

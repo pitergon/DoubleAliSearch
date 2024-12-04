@@ -192,8 +192,7 @@ async def get_active_search_by_id_endpoint(request: Request,
     if not page_data:
         raise HTTPException(status_code=404, detail=f"Search data '{search_uuid}' is not found in storage. ")
     page_data = json.loads(page_data)
-    return templates.TemplateResponse("search.j2", {
-        "request": request,
+    return templates.TemplateResponse(request, "search.j2", {
         "names_list1": page_data.get("names_list1"),
         "names_list2": page_data.get("names_list2"),
         "is_active_search": True,
@@ -207,7 +206,7 @@ async def get_search_page_endpoint(request: Request):
     :param request:
     :return:
     """
-    return templates.TemplateResponse("search.j2", {"request": request, })
+    return templates.TemplateResponse(request, "search.j2")
 
 
 async def get_messages(redis, user_id, search_uuid):

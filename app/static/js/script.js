@@ -135,7 +135,7 @@ function startPolling() {
     console.log("Polling is already running.");
     return;
   }
-  fetchInterval = setInterval(fetchMessages, 500);
+  fetchInterval = setInterval(fetchMessages, 2000);
 }
 
 //function stops polling for messages

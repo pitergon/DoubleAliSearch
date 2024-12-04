@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse
@@ -13,7 +14,29 @@ from app.middleware import refresh_token_middleware, add_token_to_header_middlew
 from app.models.models import User
 from app.auth import get_current_user
 
-app = FastAPI()
+
+async def scheduled_redis_clear_task():
+    """
+    Scheduled task to clear incomplete searches from Redis
+    :return:
+    """
+    redis = await get_redis()
+    while True:
+        await asyncio.sleep(86400)
+        await redis.delete_incomplete_searches()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(scheduled_redis_clear_task())
+    try:
+        yield
+    finally:
+        task.cancel()
+        await redis.close()
+
+
+app = FastAPI(lifespan=lifespan)
 if not app.state:
     app.state = State()
 active_searches: dict[str, SearchEngine] = {}
@@ -40,7 +63,6 @@ async def index_endpoint(request: Request, current_user: User = Depends(get_curr
     return RedirectResponse(f"/search", status_code=303)
 
 
-
 @app.exception_handler(404)
 async def not_found_exception_handler(request: Request, e: Exception):
     """
@@ -49,11 +71,11 @@ async def not_found_exception_handler(request: Request, e: Exception):
     :param e:
     :return:
     """
-    return templates.TemplateResponse(
-        "error.j2",
-        {"request": request, "error_details": "Page not found", "status_code": 404},
-        status_code=404
-    )
+    return templates.TemplateResponse(request,
+                                      "error.j2",
+                                      {"error_details": "Page not found", "status_code": 404},
+                                      status_code=404
+                                      )
 
 
 @app.exception_handler(HTTPException)
@@ -68,9 +90,9 @@ async def http_exception_handler(request: Request, e: HTTPException):
         return RedirectResponse(url="/users/login")
     error_details = e.detail if e.detail else "An error occurred"
     return templates.TemplateResponse(
+        request,
         "error.j2",
         {
-            "request": request,
             "error_details": error_details,
             "status_code": e.status_code,
         },
@@ -88,9 +110,9 @@ async def validation_exception_handler(request: Request, e: ValidationError):
     """
     error_details = [error.get('ctx', {}).get('reason', 'Unknown error') for error in e.errors()]
     return templates.TemplateResponse(
+        request,
         "error.j2",
         {
-            "request": request,
             "error_details": error_details,
             "status_code": 400,
         },
@@ -98,30 +120,3 @@ async def validation_exception_handler(request: Request, e: ValidationError):
     )
 
 
-async def scheduled_redis_clear_task():
-    """
-    Scheduled task to clear incomplete searches from Redis
-    :return:
-    """
-    redis = await get_redis()
-    while True:
-        await asyncio.sleep(86400)
-        await redis.delete_incomplete_searches()
-
-
-@app.on_event("startup")
-async def startup_event():
-    """
-    Startup event to create scheduled task for clearing incomplete searches in Redis
-    :return:
-    """
-    asyncio.create_task(scheduled_redis_clear_task())
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """
-    Shutdown event to close Redis connection
-    :return:
-    """
-    await get_redis().close()

@@ -4,7 +4,7 @@ from jose import jwt, JWTError
 from app.core.jwt_config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None)-> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """
     Create an access token
     :param data: dict: data to encode

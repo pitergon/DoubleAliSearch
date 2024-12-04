@@ -1,19 +1,23 @@
-{% extends "base.html" %}
+{% extends "base.j2" %}
 {% block title %} History {% endblock %}
 {% block content %}
-<main class="container mx-auto px-4 pt-4 pb-7 flex flex-col space-y-4">
-      {% if history %} {% for search in history %}
+  <main class="container flex flex-grow flex-col mx-auto px-4 pt-4 pb-7 space-y-4">
+    <div class="flex flex-row justify-between">
+        <h2 class="text-2xl px-4 font-semibold text-red-600">Search history</h2>
+        <a  href="/users/logout" class="px-4 text-red-600 hover:text-red-800 font-bold text-lg">Logout</a>
+    </div>
+    {% if searches %} {% for search in searches %}
       <section class="bg-orange-50 flex flex-col shadow-lg rounded-lg py-2 flex-none">
         <h3 class="text-xl px-4">
-          <a href="/search/{{ search.search_id }}" class="font-semibold text-red-600 hover:underline"
-            >{{ search.created_at }}</a
+          <a href="/history/search/{{ search.uuid }}" class="font-semibold text-red-600 hover:underline"
+          >{{ search.formatted_created_at }}  {{ search.created_at }}</a
           >
         </h3>
         <div class="px-4 py-2">
           <p>First products names</p>
           <ol class="list-disc pl-6">
             {% if search.names_list1 %} {% for name in search.names_list1 %}
-            <li class="list-disc">{{ name }}</li>
+              <li class="list-disc">{{ name }}</li>
             {% endfor %} {% endif %}
           </ol>
         </div>
@@ -21,50 +25,50 @@
           <p>Second products names</p>
           <ol class="list-disc pl-6">
             {% if search.names_list2 %} {% for name in search.names_list2 %}
-            <li class="list-disc">{{ name }}</li>
+              <li class="list-disc">{{ name }}</li>
             {% endfor %} {% endif %}
           </ol>
         </div>
         <div class="px-4 py-2">
-          <a class="font-semibold text-red-600 hover:underline" href="/search/{{ search.search_id }}"
-            >Found stores: {{ search.results_number }}</a
+          <a class="font-semibold text-red-600 hover:underline" href="/history/search/{{ search.uuid }}"
+          >Found stores: {{ search.results_number }}</a
           >
         </div>
       </section>
-      {% endfor %} {% endif %} {% if pagination %}
-      <section class="bg-orange-50 flex justify-end items-center shadow-lg rounded-lg py-2 px-4">
-        <div class="flex space-x-2">
-          <span class="py-2 px-4"> Total {{ total_records }} records in {{ total_pages }} pages  </span>
-          {% if "first" in pagination %}
+    {% endfor %} {% endif %} {% if pagination %}
+    <section class="bg-orange-50 flex justify-end items-center shadow-lg rounded-lg py-2 px-4">
+      <div class="flex space-x-2">
+        <span class="py-2 px-4"> Total {{ total_records }} records in {{ total_pages }} pages  </span>
+        {% if "first" in pagination %}
           <a href="/history/{{ 1 }}" class="bg-red-600 hover:bg-red-900 text-white font-bold py-2 px-4 rounded">
             &laquo;
           </a>
-          {% endif %} {% if "prev" in pagination %}
-          <a
-            href="/history/{{ pagination['prev'] }}"
-            class="bg-red-600 hover:bg-red-900 text-white font-bold py-2 px-4 rounded"
-          >
-            &lsaquo;
-          </a>
-          {% endif %} {% if "current_page" in pagination %}
-          <span class="bg-red-900 text-white font-bold py-2 px-4 rounded"> {{ pagination['current_page'] }} </span>
-          {% endif %} {% if "next" in pagination %}
-          <a
-            href="/history/{{ pagination['next'] }}"
-            class="bg-red-600 hover:bg-red-900 text-white font-bold py-2 px-4 rounded"
-          >
-            &rsaquo;
-          </a>
-          {% endif %} {% if "last" in pagination %}
-          <a
-            href="/history/{{ pagination['last'] }}"
-            class="bg-red-600 hover:bg-red-900 text-white font-bold py-2 px-4 rounded"
-          >
-            &raquo;
-          </a>
-          {% endif %}
-        </div>
-      </section>
-   </main>
+        {% endif %} {% if "prev" in pagination %}
+        <a
+                href="/history/{{ pagination['prev'] }}"
+                class="bg-red-600 hover:bg-red-900 text-white font-bold py-2 px-4 rounded"
+        >
+          &lsaquo;
+        </a>
+      {% endif %} {% if "current_page" in pagination %}
+        <span class="bg-red-900 text-white font-bold py-2 px-4 rounded"> {{ pagination['current_page'] }} </span>
+      {% endif %} {% if "next" in pagination %}
+        <a
+                href="/history/{{ pagination['next'] }}"
+                class="bg-red-600 hover:bg-red-900 text-white font-bold py-2 px-4 rounded"
+        >
+          &rsaquo;
+        </a>
+      {% endif %} {% if "last" in pagination %}
+        <a
+                href="/history/{{ pagination['last'] }}"
+                class="bg-red-600 hover:bg-red-900 text-white font-bold py-2 px-4 rounded"
+        >
+          &raquo;
+        </a>
       {% endif %}
+      </div>
+    </section>
+  {% endif %}
+  </main>
 {% endblock %}

@@ -19,9 +19,9 @@ class SearchEngine:
     Main class for searching products on Aliexpress
     """
 
-    def __init__(self, session_id: str, search_uuid: str, redis: Redis):
+    def __init__(self, user_id: str, search_uuid: str, redis: Redis):
 
-        self.session_id = session_id
+        self.user_id = user_id
         self.search_uuid = search_uuid
         self.redis = redis
         self.task: Optional[asyncio.Task] = None  # Link to background task
@@ -43,7 +43,7 @@ class SearchEngine:
         self.enable_save_to_json = False
 
     async def check_stop_flag(self):
-        entry = await self.redis.get(f"{self.session_id}:{self.search_uuid}:stop_flag")
+        entry = await self.redis.get(f"{self.user_id}:{self.search_uuid}:stop_flag")
         return bool(int(entry)) if entry else False
 
     @staticmethod
@@ -168,7 +168,7 @@ class SearchEngine:
         """
 
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        await self.redis.rpush(f"{self.session_id}:{self.search_uuid}:messages", f"{time_str} - {message}")
+        await self.redis.rpush(f"{self.user_id}:{self.search_uuid}:messages", f"{time_str} - {message}")
         print(f"{time_str} - {self.search_uuid[-4:]} - {message}")
 
     async def _get_next_page_number(self, soup: BeautifulSoup) -> int | str:
@@ -563,4 +563,4 @@ class SearchEngine:
             for key, value in serialized_results.items()
         }
 
-        await self.redis.hset(f"{self.session_id}:{self.search_uuid}:results", mapping=sanitized_results)
+        await self.redis.hset(f"{self.user_id}:{self.search_uuid}:results", mapping=sanitized_results)

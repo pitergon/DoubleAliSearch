@@ -1,4 +1,7 @@
 let fetchInterval = null;
+let pressTimer;
+const LONG_PRESS_DURATION = 500;
+
 document.addEventListener("DOMContentLoaded", function () {
 
   const resultsData = JSON.parse(document.getElementById("results-data").value || "{}");
@@ -13,18 +16,40 @@ document.addEventListener("DOMContentLoaded", function () {
     addOption('namesList2', 'input2');
   });
 
-  document.getElementById("namesList1").addEventListener("dblclick", removeOption);
-  document.getElementById("namesList2").addEventListener("dblclick", removeOption);
+  const list1 = document.getElementById("namesList1");
+  const list2 = document.getElementById("namesList2");
+
+  list1.addEventListener("dblclick", removeOption);
+  list2.addEventListener("dblclick", removeOption);
+  //for touchscreen devices
+  list1.addEventListener("touchstart", handleLongPressStart);
+  list2.addEventListener("touchstart", handleLongPressStart);
+  list1.addEventListener("touchend", handleLongPressEnd);
+  list2.addEventListener("touchend", handleLongPressEnd);
+
   document.getElementById("search-button").addEventListener("click", validateAndSearch);
   document.getElementById("stop-button").addEventListener("click", stopSearch);
   document.getElementById("save-button").addEventListener("click", saveSearch);
 
 
   if (isActiveSearch) {
-        startPolling();
-    }
+    startPolling();
+  }
 });
 
+//for touchscreen devices
+function handleLongPressStart(event) {
+  if (event.target && event.target.tagName === "OPTION") {
+    pressTimer = setTimeout(() => {
+      removeOption(event);
+    }, LONG_PRESS_DURATION);
+  }
+}
+
+//for touchscreen devices
+function handleLongPressEnd(event) {
+  clearTimeout(pressTimer);
+}
 
 //function adds option with product name to related select list
 function addOption(selectId, inputId) {
@@ -94,21 +119,7 @@ function startSearch() {
           const searchButton = document.getElementById("search-button");
           searchButton.disabled = true;
         }
-        // else {
-        //   //clear messages and results containers
-        //   const messageContainer = document.getElementById("messages-container");
-        //   messageContainer.innerHTML = "";
-        //   const messagesListField = document.getElementById("messages-list");
-        //   messagesListField.value = "";
-        //   const resultsListField = document.getElementById("results-data");
-        //   resultsListField.value = "";
-        //   if (Array.isArray(data.messages)) {
-        //     loadMessages(data.messages);
-        //   }
-        //   document.getElementById("results-container").textContent = "";
-        //   //timer for getting messages about searching
-        //   startPolling();
-        // }
+
       }
     })
     .catch((error) => {
@@ -119,19 +130,19 @@ function startSearch() {
 
 //function starts polling for messages
 function startPolling() {
-    console.log("Polling started...");
-    if (fetchInterval !== null) {
-        console.log("Polling is already running.");
-        return;
-    }
-    fetchInterval = setInterval(fetchMessages, 500);
+  console.log("Polling started...");
+  if (fetchInterval !== null) {
+    console.log("Polling is already running.");
+    return;
+  }
+  fetchInterval = setInterval(fetchMessages, 500);
 }
 
 //function stops polling for messages
 function stopPolling() {
-    console.log("Polling stopped.");
-    clearInterval(fetchInterval);
-    fetchInterval = null;
+  console.log("Polling stopped.");
+  clearInterval(fetchInterval);
+  fetchInterval = null;
 }
 
 //function  gets messages from server and updates message_container
@@ -157,13 +168,17 @@ function fetchMessages() {
         const resultsListField = document.getElementById("results-data");
         resultsListField.value = JSON.stringify(data.results); //save results to hidden field
       }
-
-      if (data.search_finished) {
+      if (data.search_finished ) {
         clearInterval(fetchInterval);
-        const searchButton = document.getElementById("search-button");
-        searchButton.disabled = false;
-        const saveButton = document.getElementById("save-button");
-        saveButton.disabled = false;
+        document.getElementById("search-button").disabled = false;
+        document.getElementById("save-button").disabled = false;
+      }
+      if (data.error) {
+        clearInterval(fetchInterval);
+        document.getElementById("search-button").disabled = false;
+        document.getElementById("save-button").disabled = false;
+        alert(data.messages);
+        console.error("Error fetching messages:", data.messages);
       }
     })
     .catch((error) => console.error("Error fetching messages:", error));
@@ -183,11 +198,19 @@ function stopSearch() {
     }),
   })
     .then((response) => {
-      if (response.ok) {
-        stopPolling()
-        document.getElementById("search-button").disabled = false;
-      } else {
-        console.error("Failed to stop search");
+      stopPolling()
+      document.getElementById("search-button").disabled = false;
+      return response.json();
+    })
+    .then((data) => {
+      if (data) {
+        if(data.error){
+          console.error("Failed to stop search");
+        }
+        if (data.messages) {
+          alert(data.messages);
+          console.log(data.messages);
+        }
       }
     })
     .catch((error) => console.error("Error:", error))
@@ -195,8 +218,7 @@ function stopSearch() {
 
 //function sends save command to server for save search
 function saveSearch() {
-  const saveButton = document.getElementById("save-button");
-  saveButton.disabled = true;
+  document.getElementById("save-button").disabled = true;
   let namesList1 = Array.from(document.getElementById("namesList1").options).map((option) => option.value);
   let namesList2 = Array.from(document.getElementById("namesList2").options).map((option) => option.value);
   const messagesList = JSON.parse(document.getElementById("messages-list").value || "[]");
@@ -217,57 +239,23 @@ function saveSearch() {
       results: resultsData,
     }),
   })
-  .then((response) => {
-    if (response.ok) {
-      console.log("Search saved");
-    } else {
-      console.error("Failed to stop search");
-    }
-  })
-  .catch((error) => console.error("Error:", error))
-}
-
-//function loads results from dictionary to results-container
-function loadResults_old(resultData) {
-  const resultsContainer = document.getElementById("results-container");
-  resultsContainer.innerHTML = "";
-  if (Object.keys(resultData).length === 0) {
-    const p = document.createElement("p");
-    p.textContent = "No results found";
-    resultsContainer.appendChild(p);
-  }
-  else {
-    const ol = document.createElement("ol");
-    ol.classList.add("list-decimal", "pl-6");
-    const aClassNames = ["text-red-600", "hover:text-red-900", "hover:underline"];
-    for (const [key, value] of Object.entries(resultData)) {
-      const liStore = document.createElement("li");
-      const storeLink = document.createElement("a");
-      storeLink.textContent = key;
-      storeLink.href = key;
-      storeLink.target = "_blank";
-      storeLink.classList.add(...aClassNames);
-      liStore.appendChild(storeLink);
-      const ul = document.createElement("ul");
-      ul.classList.add("list-disc", "pl-6");
-      for (const [_, innerValue] of Object.entries(value)) {
-        if (innerValue.link) {
-          const liProduct = document.createElement("li");
-          const productLink = document.createElement("a");
-          productLink.textContent = innerValue.currency + innerValue.sale_price + " " + innerValue.title;
-          productLink.href = innerValue.link;
-          productLink.target = "_blank";
-          productLink.classList.add(...aClassNames);
-          liProduct.appendChild(productLink);
-          ul.appendChild(liProduct);
+    .then((response) => {
+      return response.json();
+    })
+    .then((data) => {
+      if (data) {
+        if (data.error) {
+          console.error("Failed to save search");
+        } else {
+          console.log("Search saved");
+        }
+        if (data.messages) {
+          alert(data.messages);
+          console.log(data.messages);
         }
       }
-      liStore.appendChild(ul);
-      ol.appendChild(liStore);
-    }
-    resultsContainer.appendChild(ol);
-    resultsContainer.scrollTop = resultsContainer.scrollHeight;
-  }
+    })
+    .catch((error) => console.error("Error:", error))
 }
 
 //function loads results from dictionary to results-container
@@ -321,7 +309,6 @@ function loadResults(resultData) {
   resultsContainer.appendChild(ol);
   resultsContainer.scrollTop = resultsContainer.scrollHeight;
 }
-
 
 
 //functions loads messages to messages-container from hidden field

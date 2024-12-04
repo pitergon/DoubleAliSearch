@@ -30,6 +30,7 @@ def create_refresh_token(data: dict, expires_delta: timedelta = None):
 
 
 def verify_token(token: str):
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -37,4 +38,4 @@ def verify_token(token: str):
             raise HTTPException(status_code=401, detail="Could not validate credentials")
         return username
     except JWTError:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
+        raise HTTPException(status_code=401, detail="JWT Error. Could not validate credentials")

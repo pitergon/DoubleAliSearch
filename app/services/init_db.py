@@ -2,8 +2,8 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from app.services.base import Base
-from app.models.user import User
-from app.models.search import Search
+from app.models.models import User
+from app.models.models import Search
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

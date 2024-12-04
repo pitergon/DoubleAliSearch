@@ -1,19 +1,17 @@
 import asyncio
 
-#from dotenv import load_dotenv
-#load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
-
 from fastapi import FastAPI, Depends, Request, HTTPException
-from fastapi.exceptions import RequestValidationError
+from fastapi.responses import RedirectResponse, HTMLResponse
 from pydantic import ValidationError
-from starlette.responses import HTMLResponse
 from starlette.datastructures import State
-import uuid
 
 from app.resources import static_files, templates
 from app.dependecies import get_redis
 from app.search_engine import SearchEngine
 from app.routers import history, search, users
+from app.middleware import refresh_token_middleware, add_token_to_header_middleware
+from app.models.models import User
+from app.auth import get_current_user
 
 app = FastAPI()
 if not app.state:
@@ -24,19 +22,23 @@ app.state.active_searches = active_searches
 app.mount("/static", static_files, name="static")
 app.include_router(search.router, tags=["search"])
 app.include_router(history.router, tags=["history"])
-
 app.include_router(users.router, tags=["users"])
+
+app.middleware('http')(refresh_token_middleware)
+app.middleware('http')(add_token_to_header_middleware)
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index_endpoint(request: Request):
+async def index_endpoint(request: Request, current_user: User = Depends(get_current_user)):
     """
     Main page
+    :param current_user:
     :param request:
     :return:
     """
 
-    return templates.TemplateResponse("search.j2", {"request": request, })
+    return RedirectResponse(f"/search", status_code=303)
+
 
 
 @app.get("/test", response_class=HTMLResponse)
@@ -46,12 +48,22 @@ async def index_endpoint(request: Request):
     :param request:
     :return:
     """
-    print(request.headers)
     return templates.TemplateResponse("test.j2", {"request": request, })
+
+
+@app.exception_handler(404)
+async def not_found_exception_handler(request: Request, e: Exception):
+    return templates.TemplateResponse(
+        "error.j2",
+        {"request": request, "error_details": "Page not found", "status_code": 404},
+        status_code=404
+    )
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, e: HTTPException):
+    if e.status_code == 401:
+        return RedirectResponse(url="/users/login")
     error_details = e.detail if e.detail else "An error occurred"
     return templates.TemplateResponse(
         "error.j2",
@@ -76,42 +88,6 @@ async def validation_exception_handler(request: Request, e: ValidationError):
         },
         status_code=400,
     )
-
-
-@app.middleware("http")
-async def add_session_middleware(request: Request, call_next):
-    session_id = get_session_id(request)
-    if session_id:
-        user_data = await get_user_data(session_id)
-        request.state.user_data = user_data
-    else:
-        request.state.user_data = None
-    request.state.session_id = session_id
-    response = await call_next(request)
-    response.set_cookie(key="session_id", value=session_id)
-    # set session_id timer
-    return response
-
-
-@app.middleware("http")
-async def add_token_to_header(request: Request, call_next):
-    access_token = request.cookies.get("access_token")
-    if access_token:
-        #request.headers["Authorization"] = access_token
-        request.headers.__dict__["_list"].append((b"authorization", access_token.encode()))
-    response = await call_next(request)
-    return response
-
-
-def get_session_id(request: Request):
-    session_id = request.cookies.get("session_id")
-    if not session_id:
-        session_id = str(uuid.uuid4())
-    return session_id
-
-
-async def get_user_data(session_id):
-    return {"session_id": session_id}
 
 
 async def scheduled_redis_clear_task():

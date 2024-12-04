@@ -1,143 +1,150 @@
 {% extends "base.j2" %}
 {% block title %} Double AliExpress Search {% endblock %}
 {% block content %}
-    <main class="container mx-auto px-4 pt-4 pb-7 flex flex-col space-y-4 flex-grow">
-      <!--search lists-->
-      <section class="bg-white flex flex-col shadow-lg rounded-lg py-2 flex-none">
+  <main class="container flex flex-grow flex-col mx-auto px-4 pt-4 pb-7 space-y-4 ">
+    <!--search lists-->
+    <section class="bg-white flex flex-col shadow-lg rounded-lg py-2 flex-none">
+      <div class="flex flex-row justify-between">
         <h3 class="text-xl px-4 font-semibold text-red-600">Product names</h3>
-        <div class="flex flex-row mt-4">
-          <!-- list 1 -->
-          <div class="flex flex-col flex-grow basis-1/2 px-4">
-            <div class="flex flex-row">
-              <label for="input1"></label>
-              <input
-                type="text"
-                class="flex-grow border text-red-600 border-red-600 p-2 rounded-md focus:outline-none focus:border-yellow-500"
-                id="input1"
-                placeholder="Add to List 1"
-                value="7260ac"
-              />
-              <button
-                type="button"
-                id="add-to-list1"
-                class="ml-4 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
-              >
-                Add to List 1
-              </button>
-            </div>
-            <div class="flex-grow w-full mt-1" id="select-container-1">
-              <p class="text-red-600">List of first product names (double click to delete)</p>
-              <div class="overflow-hidden rounded-md mt-2 border border-red-600">
-                <label for="namesList1"></label><select
-                  id="namesList1"
-                  name="names_list1[]"
-                  size="2"
-                  multiple
-                  class="w-full text-red-600 p-2 focus:outline-none focus:border-yellow-500 overflow-auto"
-                >
-                  {% if names_list1 %} {% for name in names_list1 %}
-                  <option value="{{ name }}">{{ name }}</option>
-                  {% endfor %} {% endif %}
-                </select>
-              </div>
-            </div>
+        <a href="/users/logout" class="px-4 text-red-600 hover:text-red-800 font-bold text-lg">Logout</a>
+      </div>
+      <div class="flex flex-col gap-8 md:flex-row md:gap-0 mt-4 ">
+        <!-- list 1-->
+        <div class="flex flex-col flex-grow basis-1/2 px-4">
+          <!-- input1 and button1 and select-->
+          <div class="flex flex-col md:flex-row gap-2 justify-between">
+            <!-- input1 and button1 -->
+            <label for="input1" class="md:hidden text-red-600">First product names</label>
+            <input
+                    type="text"
+                    class="flex-grow border text-red-600 border-red-600 p-2 rounded-md focus:outline-none focus:border-yellow-500"
+                    id="input1"
+                    placeholder="Add to List 1"
+                    value="7260ac"
+            />
+            <button
+                    type="button"
+                    id="add-to-list1"
+                    class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
+            >
+              Add to List 1
+            </button>
           </div>
-          <!-- list 2 -->
-          <div class="flex flex-col flex-grow basis-1/2 px-4">
-            <div class="flex flex-row">
-              <label for="input2"></label><input
-                type="text"
-                class="flex-grow text-red-600 border border-red-600 p-2 rounded-md focus:outline-none focus:border-yellow-500"
-                id="input2"
-                placeholder="Add to List 2"
-                value="DW5823e"
-              />
-              <button
-                type="button"
-                id="add-to-list2"
-                class="ml-4 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
-                onclick="addOption('namesList2', 'input2')"
-              >
-                Add to List 2
-              </button>
-            </div>
-            <div class="flex-grow w-full mt-1" id="select-container-2">
-              <p class="text-red-600">List of second product names (double click to delete)</p>
-              <div class="overflow-hidden rounded-md mt-2 border border-red-600">
-                <label for="namesList2"></label><select
-                  id="namesList2"
-                  name="names_list2[]"
-                  size="2"
-                  multiple
-                  class="w-full text-red-600 p-2 focus:outline-none focus:border-yellow-500 overflow-auto"
-                >
-                  {% if names_list2 %} {% for name in names_list2 %}
-                  <option value="{{ name }}">{{ name }}</option>
-                  {% endfor %} {% endif %}
-                </select>
-              </div>
-            </div>
+          <div class="flex-grow w-full mt-1" id="select-container-1">
+
+            <label for="namesList1" class="text-red-600">List of first product names (double click to delete)</label>
+            <select
+                    id="namesList1"
+                    name="names_list1[]"
+                    size="2"
+                    multiple
+                    class="border border-red-600 rounded-md w-full min-w-0 overflow-hidden text-ellipsis text-red-600 p-2 focus:outline-none focus:border-yellow-500 overflow-auto"
+            >
+              {% if names_list1 %} {% for name in names_list1 %}
+                <option value="{{ name }}">{{ name }}</option>
+              {% endfor %} {% endif %}
+            </select>
           </div>
         </div>
-        <div class="flex w-full mt-2">
-          <div class="flex flex-row justify-between flex-grow basis-1/2 px-4">
-            <div class="py-1">
-              <a href="/history" class="text-red-600 hover:text-red-800 font-bold text-lg">History</a>
-            </div>
-            <div>
-              <button
-                type="button"
-                class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300 disabled:bg-red-400 disabled:opacity-50"
-                id="search-button"
-                {% if is_active_search %} disabled {% endif %}
-              >
-                Search
-              </button>
-            </div>
-          </div>
-          <div class="flex flex-row justify-between flex-grow basis-1/2 px-4">
+        <!-- list 2 -->
+        <div class="flex flex-col flex-grow basis-1/2 px-4">
+          <!-- input2 and button2 and select-->
+          <div class="flex flex-col md:flex-row gap-2 justify-between">
+            <!-- input2 and button2-->
+            <label for="input2" class="md:hidden text-red-600">Second product names</label>
+            <input
+                    type="text"
+                    class="flex-grow border text-red-600 border-red-600 p-2 rounded-md focus:outline-none focus:border-yellow-500"
+                    id="input2"
+                    placeholder="Add to List 2"
+                    value="DW5823e"
+            />
             <button
-              type="button"
-              class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
-              id="stop-button"
+                    type="button"
+                    id="add-to-list2"
+                    class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
+            >
+              Add to List 2
+            </button>
+          </div>
+          <div class="flex-grow w-full mt-1" id="select-container-2">
+            <label for="namesList2" class="text-red-600">List of second product names (double click to delete)</label>
+            <select
+                    id="namesList2"
+                    name="names_list2[]"
+                    size="2"
+                    multiple
+                    class="border border-red-600 rounded-md w-full min-w-0 overflow-hidden text-ellipsis text-red-600 p-2 focus:outline-none focus:border-yellow-500 overflow-auto"
+            >
+              {% if names_list2 %} {% for name in names_list2 %}
+                <option value="{{ name }}">{{ name }}</option>
+              {% endfor %} {% endif %}
+            </select>
+
+          </div>
+        </div>
+      </div>
+      <!-- Buttons -->
+      <div class="flex w-full mt-2 gap-2 md:gap-0">
+        <div class="flex flex-row justify-between flex-grow basis-1/2 gap-2 pl-4 md:px-4">
+          <button
+                  type="button"
+                  class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300 disabled:bg-red-400 disabled:opacity-50"
+                  id="save-button"
+                  disabled
+          >
+            Save
+          </button>
+          <button
+                  type="button"
+                  class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300 disabled:bg-red-400 disabled:opacity-50"
+                  id="search-button"
+                  {% if is_active_search %} disabled {% endif %}
+          >
+            Search
+          </button>
+        </div>
+        <div class="flex flex-row justify-between flex-grow basis-1/2 gap-2 pr-4 md:px-4">
+            <button
+                    type="button"
+                    class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300"
+                    id="stop-button"
             >
               Stop
             </button>
-            <button
-              type="button"
-              class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-800 transition duration-300 disabled:bg-red-400 disabled:opacity-50"
-              id="save-button"
-              disabled
-            >
-              Save
-            </button>
+
+          <div class="py-1">
+            <a href="/history" class="text-red-600 hover:text-red-800 font-bold text-lg">History</a>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- Search Messages -->
-      <section class="bg-orange-50 flex flex-grow flex-col shadow-lg rounded-lg py-2 overflow-auto h-[calc(20vh)]" id="messages-section">
-        <h3 class="text-xl px-4 font-semibold text-red-600">Search Messages</h3>
-        <div class="px-4 mt-2 flex-grow overflow-auto text-red-600" id="messages-container">
-        </div>
-      </section>
+    <!-- Search Messages -->
+    <section class="bg-orange-50 flex flex-grow flex-col shadow-lg rounded-lg py-2 overflow-auto h-[calc(20vh)]"
+             id="messages-section">
+      <h3 class="text-xl px-4 font-semibold text-red-600">Search Messages</h3>
+      <div class="px-4 mt-2 flex-grow overflow-auto text-red-600" id="messages-container">
+      </div>
+    </section>
 
-      <!-- Search Results -->
-      <section class="bg-orange-100 flex flex-grow flex-col shadow-lg rounded-lg py-2 overflow-auto h-[calc(20vh)]" id="results-section">
-        <h3 class="text-xl px-4 font-semibold text-red-600">Search Results</h3>
-        <div class="px-4 mt-2 flex-grow overflow-auto text-red-600" id="results-container">
-        </div>
-      </section>
-    </main>
-  {% endblock %}
+    <!-- Search Results -->
+    <section class="bg-orange-100 flex flex-grow flex-col shadow-lg rounded-lg py-2 overflow-auto h-[calc(20vh)]"
+             id="results-section">
+      <h3 class="text-xl px-4 font-semibold text-red-600">Search Results</h3>
+      <div class="px-4 mt-2 flex-grow overflow-auto text-red-600" id="results-container">
+      </div>
+    </section>
+  </main>
+{% endblock %}
 {% block hidden %}
-    <input type="hidden" id="messages-list" name="messages-list" value="{{ messages }}">
-    <input type="hidden" id="results-data" name="results-data" value="{{ results }}">
-    {% if is_active_search %}
-      <script>const isActiveSearch = true;</script>
-    {% else %}
-      <script>const isActiveSearch = false;</script>
-    {% endif %}
-    <script src="{{ url_for('static', path='js/script.js') }}"></script>
+  <input type="hidden" id="messages-list" name="messages-list" value="{{ messages }}">
+  <input type="hidden" id="results-data" name="results-data" value="{{ results }}">
+  {% if is_active_search %}
+    <script>const isActiveSearch = true;</script>
+  {% else %}
+    <script>const isActiveSearch = false;</script>
+  {% endif %}
+  <script src="{{ url_for('static', path='js/script.js') }}"></script>
 {% endblock %}
 

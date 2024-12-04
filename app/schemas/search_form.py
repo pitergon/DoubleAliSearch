@@ -15,6 +15,6 @@ class SearchForm(BaseModel):
 
 
 class SearchFormSave(SearchForm):
-    search_uuid: Optional[str] = None
+    # search_uuid: Optional[str] = None
     messages: Optional[list[str]] = None
     results: Optional[dict[str, Any]] = None

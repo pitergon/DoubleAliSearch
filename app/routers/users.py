@@ -1,9 +1,10 @@
-from fastapi import Request, APIRouter, Depends, HTTPException, Security, Query
+from fastapi import Request, APIRouter, Depends, HTTPException
 from typing import Annotated, Optional
 from datetime import timedelta
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+from fastapi.responses import RedirectResponse
 
 from app.auth import (
     authenticate_user,
@@ -13,7 +14,7 @@ from app.auth import (
     get_user_by_email,
     oauth2_scheme,
 )
-from app.core.config import REFRESH_TOKEN_EXPIRE_MINUTES
+from app.core.config import REFRESH_TOKEN_EXPIRE_MINUTES, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.core.jwt import create_refresh_token, verify_token
 from app.resources import templates
 from app.schemas.user import UserCreate, UserLogin, UserPasswordReset, UserResponse
@@ -21,7 +22,6 @@ from app.schemas.token import Token
 from app.models.models import User
 from app.dependecies import get_db
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 router = APIRouter()
 
@@ -68,10 +68,10 @@ async def create_user_endpoint(request: Request, registration_form: UserCreate =
 async def get_login_page_endpoint(request: Request):
     return templates.TemplateResponse("login.j2", {"request": request, })
 
-@router.post("/users/login", response_model=Token)
+@router.post("/users/login")
 async def login_for_access_token_endpoint(request: Request,
                                           form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-                                          db: Session = Depends(get_db)) -> Token:
+                                          db: Session = Depends(get_db)):
     user = authenticate_user(form_data.username, form_data.password, db)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
@@ -87,30 +87,15 @@ async def login_for_access_token_endpoint(request: Request,
         data={"sub": user.username},
         expires_delta=refresh_token_expires,
     )
-    # return Token(
-    #     access_token=access_token, token_type="bearer", refresh_token=refresh_token
-    # )
-    response = templates.TemplateResponse("success.j2", {"request": request, "success_details": "Login successful!"})
-    response.set_cookie(key="access_token", value=f"Bearer {access_token}", httponly=True,
-                        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60)
-    response.set_cookie(key="refresh_token", value=f"Bearer {refresh_token}", httponly=True,
-                        max_age=REFRESH_TOKEN_EXPIRE_MINUTES * 60)
 
+    response = RedirectResponse(url="/search", status_code=303)
+
+    response.set_cookie(key="access_token", value=access_token, httponly=True,
+                        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True,
+                        max_age=REFRESH_TOKEN_EXPIRE_MINUTES * 60)
     return response
 
-
-@router.post("/users/reset-password")
-async def reset_password_endpoint(email: str = Query(...), db: Session = Depends(get_db)):
-    user = get_user_by_email(email, db)
-    if not user:
-        raise HTTPException(status_code=400, detail="User not found")
-    try:
-        user.password = None
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    return {"msg": "Password reset successful"}
 
 
 @router.get("/users/me", response_model=UserResponse)
@@ -133,23 +118,13 @@ async def deactivate_user_endpoint(username: str, db: Session = Depends(get_db))
         raise HTTPException(status_code=500, detail=str(e))
     return {"msg": "User deactivated"}
 
+@router.get("/users/logout")
+async def logout(request: Request):
 
-@router.post("/users/token/refresh")
-async def refresh_token_endpoint(token: str = Depends(oauth2_scheme)):
-    username = verify_token(token)
-    if not username:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    response = RedirectResponse(url="/users/login")
+    response.delete_cookie(key="access_token")
+    response.delete_cookie(key="refresh_token")
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_token_expires = timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
+    return response
 
-    access_token = create_access_token(
-        data={"sub": username}, expires_delta=access_token_expires
-    )
-    refresh_token = create_refresh_token(
-        data={"sub": username}, expires_delta=refresh_token_expires
-    )
 
-    return Token(
-        access_token=access_token, token_type="bearer", refresh_token=refresh_token
-    )

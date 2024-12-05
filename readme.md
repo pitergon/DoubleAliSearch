@@ -131,5 +131,6 @@ This script will:
 ## **Stopping the Application**
 To stop and remove all containers:
 ```bash
-docker compose down
+docker-compose down
 ```
+

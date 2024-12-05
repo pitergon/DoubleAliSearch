@@ -43,7 +43,7 @@ async def search_start_endpoint(page_data: SearchForm,
     search_key = f"{user_id}:{search_uuid}"
     if search_key in active_searches:
         return {"error": True, "messages": "Search is already running"}
-    if sum(1 for key in active_searches.keys() if key.startswith(user_id)) >= MAX_SEARCH_COUNT:
+    if sum(1 for key in active_searches.keys() if key.startswith(f"{user_id}:")) >= MAX_SEARCH_COUNT:
         return {"error": True, "messages": "Too many searches running"}
     await create_search_task(active_searches, redis, page_data.queries_list, user_id, search_uuid)
     await redis.set(f"{search_key}:page_data", page_data.model_dump_json())
@@ -61,7 +61,8 @@ async def create_search_task(active_searches, redis, queries_list: list[tuple], 
     :param search_uuid:
     :return:
     """
-    se = SearchEngine(user_id, search_uuid, redis)
+
+    se = SearchEngine(user_id, search_uuid, redis, len(active_searches))
     search_task = asyncio.create_task(se.intersection_in_global_search(queries_list))
     se.task = search_task
     search_key = f"{user_id}:{search_uuid}"

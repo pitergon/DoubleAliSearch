@@ -56,7 +56,32 @@ Create a `.env` file in the directory and add the following:
 
 ---
 
-### **4. Build and Run the Application**
+### **4. Configure the settings if needed**
+
+You can change the settings in the `app/config.py` file:
+```
+# Set the base_url to the website
+base_url = https://www.aliexpress.com/w/wholesale
+# Max number of result pages for parsing. After 8 pages results are often  not relevant
+max_page = 6
+# Max number of pages without new products in search result
+max_zero_pages = 2
+# Rechecking the product name for compliance with the search query
+filter_result = true
+# Enable pause between requests
+enable_pause = true
+# Base value Max pause time in seconds. It automatically increases with the number of simultaneous searches.
+max_pause_time = 2
+# Enable save results to JSON file
+enable_save_to_json = false
+```
+Also you can change expiration time for JWT token in `app/core/jwt_config.py` file:
+```
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+REFRESH_TOKEN_EXPIRE_MINUTES = 1440
+```
+
+### **5. Build and Run the Application**
 Run the application using Docker Compose:
 ```bash
 docker-compose up --build
@@ -81,7 +106,7 @@ docker-compose up
 
 ---
 
-### **5. Initialize the Database**
+### **6. Initialize the Database**
 Once the containers are running, execute the database initialization script:
 
 ```bash
@@ -94,7 +119,7 @@ This script will:
 
 ---
 
-### **6. Access the Application**
+### **7. Access the Application**
 - App URL: http://localhost:8000/
 - You should register a new user to access the search functionality.
 - FastAPI Swagger UI (http://localhost:8000/docs) are disabled  

@@ -21,10 +21,11 @@ class SearchEngine:
     Main class for searching products on Aliexpress
     """
 
-    def __init__(self, user_id: str, search_uuid: str, redis: Redis):
+    def __init__(self, user_id: str, search_uuid: str, redis: Redis, active_search_count: int=1):
 
         self.enable_save_to_json = None
         self.max_pause_time = None
+
         self.enable_pause = None
         self.filter_result = None
         self.max_zero_pages = None
@@ -35,6 +36,8 @@ class SearchEngine:
         self.redis = redis
         self.task: Optional[asyncio.Task] = None  # Link to background task
 
+        # need to set min and max time for pause
+        self.active_search_count = active_search_count if active_search_count > 0 else 1
         # Load configuration from file
         self.load_config('config.ini')
 
@@ -494,7 +497,9 @@ class SearchEngine:
 
     async def pause(self):
         if self.enable_pause:
-            pause = random.randint(0, self.max_pause_time)
+            min_value = self.active_search_count - 1
+            max_value = min_value + self.max_pause_time
+            pause = random.randint(min_value, max_value)
             msg = f"Pause for {pause} second"
             await self.add_message(msg)
             await asyncio.sleep(pause)

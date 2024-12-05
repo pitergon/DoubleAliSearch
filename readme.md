@@ -38,17 +38,18 @@ git clone https://github.com/pitergon/FastApiAliSearch.git
 ---
 
 ### **3. Configure Environment Variables**
-Create a `.env` file in the ./app directory and add the following:
+Create a `.env` file in the directory and add the following:
 ``` 
     DB_USER=your_postgres_user
     DB_PASSWORD=your_postgres_password
-    DB_HOST=postgres
+    DB_HOST=your_postgres_host
     DB_PORT=5432
-    DB_DATABASE=your_database_name
+    DB_NAME=your_database_name
     
-    REDIS_HOST=redis
+    REDIS_HOST=your_redis_host
+    REDIS_PORT=6379
     REDIS_PASSWORD=your_redis_password
-    
+
     JWT_SECRET_KEY=your_jwt_secret
     JWT_ALGORITHM=HS256
 ```
@@ -60,11 +61,23 @@ Run the application using Docker Compose:
 ```bash
 docker-compose up --build
 ```
+
 This command will:
 
 - Set up PostgreSQL and Redis containers.
 - Build the FastAPI application Docker image.
 - Start all services and link them using a Docker network.
+
+Pay attention where located .env file, it should be in the same directory as docker-compose.yml file.
+or you can specify the path to the .env file:
+```bash 
+docker-compose --env-file path/to/.env up --build
+```
+
+For next runs, you can use the following command:
+```bash
+docker-compose up
+```
 
 ---
 

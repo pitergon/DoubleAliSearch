@@ -11,17 +11,17 @@ from app.services.base import Base
 from app.dependecies import get_db
 
 # Load environment variables
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
-DB_TEST_DATABASE = f'test_{os.getenv("DB_DATABASE")}'
+TEST_DB_NAME = f'test_{os.getenv("DB_NAME")}'
 
 SQLALCHEMY_DATABASE_URL = (
-    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_TEST_DATABASE}"
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{TEST_DB_NAME}"
 )
 
 # Create the engine and session for the test database
@@ -35,9 +35,9 @@ def create_database():
     )
     with engine_init.connect() as connection:
         connection = connection.execution_options(isolation_level="AUTOCOMMIT")
-        connection.execute(text(f"DROP DATABASE IF EXISTS {DB_TEST_DATABASE}"))
-        connection.execute(text(f"CREATE DATABASE {DB_TEST_DATABASE}"))
-        print(f"Database {DB_TEST_DATABASE} successfully created.")
+        connection.execute(text(f"DROP DATABASE IF EXISTS {TEST_DB_NAME}"))
+        connection.execute(text(f"CREATE DATABASE {TEST_DB_NAME}"))
+        print(f"Database {TEST_DB_NAME} successfully created.")
 
 
 def create_tables():
@@ -58,12 +58,12 @@ def drop_database():
             text(f"""
                 SELECT pg_terminate_backend(pg_stat_activity.pid)
                 FROM pg_stat_activity
-                WHERE pg_stat_activity.datname = '{DB_TEST_DATABASE}'
+                WHERE pg_stat_activity.datname = '{TEST_DB_NAME}'
                   AND pid <> pg_backend_pid();
             """)
         )
-        connection.execute(text(f"DROP DATABASE IF EXISTS {DB_TEST_DATABASE}"))
-        print(f"Database {DB_TEST_DATABASE} successfully dropped.")
+        connection.execute(text(f"DROP DATABASE IF EXISTS {TEST_DB_NAME}"))
+        print(f"Database {TEST_DB_NAME} successfully dropped.")
 
 # Dependency override for the test database
 def override_get_db():

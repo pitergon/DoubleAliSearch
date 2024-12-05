@@ -1,0 +1,6 @@
+# .dockerignore
+tests/
+.git/
+*.pyc
+*.pyo
+__pycache__/

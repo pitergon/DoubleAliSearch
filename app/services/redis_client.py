@@ -20,10 +20,13 @@ class RedisClient:
 
     def init_redis(self):
         if self._redis is None:
-            redis_host = os.getenv('REDIS_HOST', 'localhost:6379')
+            redis_host = os.getenv('REDIS_HOST', 'localhost')
+            redis_port = os.getenv('REDIS_PORT', '6379')
             redis_password = os.getenv('REDIS_PASSWORD', None)
-            redis_url = f"redis://{redis_host}"
-            # self._redis = redis.from_url(redis_url, password=redis_password)
+            if redis_password:
+                redis_url = f"redis://:{redis_password}@{redis_host}:{redis_port}"
+            else:
+                redis_url = f"redis://{redis_host}:{redis_port}"
             self._redis = redis.from_url(redis_url)
 
     def get_redis(self):
